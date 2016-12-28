@@ -14,11 +14,12 @@ In terminal or command prompt, run `sudo pip install --upgrade google-api-python
 Download the contents in this folder as a zip file. Navigate to the folder you downloaded to in Terminal or Command Prompt:
 `cd Downloads/planner-master`
 
-Run `python planner.py`!
+Run `python planner.py`! You will be prompted to give calendar and task permissions to planner.
 
 ## Switch users
-Remove the file `~/.credentials/tasks-python-quickstart.json` and rerun the program. On Mac OSX, you can execute:
+Remove the files `~/.credentials/tasks-python-quickstart.json` and `~/.credentials/calendar-python-quickstart.json` and rerun the program. On Mac OSX, you can execute:
 `$ rm ~/.credentials/tasks-python-quickstart.json`
+`$ rm ~/.credentials/calendar-python-quickstart.json`
 
 ## Common errors
 
