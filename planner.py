@@ -6,6 +6,7 @@ import httplib2
 import os
 import sys
 import pytz
+import copy
 
 from apiclient import discovery
 from oauth2client import client
@@ -214,7 +215,7 @@ def get_next_events(numEvents = 100):
 		#print(times, event['summary'])
 	return eventList
 
-def add_assignment(name, year, month, day, timeToComplete, attentionSpan, breakTime):
+def add_assignment(name, year, month, day, timeToComplete, attentionSpan, breakTime, minWorkTime = 15):
 
 	due = datetime(year, month, day, tzinfo=datetime.now(pytz.utc).tzinfo)
 	due = due.astimezone(tz.tzlocal())
@@ -224,27 +225,34 @@ def add_assignment(name, year, month, day, timeToComplete, attentionSpan, breakT
 	timeToComplete = timedelta(hours = timeToComplete)
 	attentionSpan = timedelta(hours = attentionSpan)
 	breakTime = timedelta(minutes = breakTime)
+	minWorkTime = timedelta(minutes = minWorkTime)
 	index = 0
 	time1 = datetime.now(pytz.utc) + breakTime
 	time1 = time1.astimezone(tz.tzlocal())
 
 	while(timeToComplete.total_seconds() > 0):
+		
 		time2 = events[index][0] - breakTime
+		if time1.day != time2.day or time2.hour > sleepBegin:
+			sleepTonightBegin = time1.replace(hour = 22, minute = 0)
+			print(sleepTonightBegin)
+			sleepTonightEnd = sleepTonightBegin + timedelta(hours = (24 - sleepBegin + sleepEnd))
+			events.insert(index, (sleepTonightBegin, sleepTonightEnd))
+			print(sleepTonightEnd)
+			continue
+		
 		freetime = time2 - time1
 		
-		if (freetime.total_seconds() > 0):
+		if (freetime >= minWorkTime):
 			workTime = attentionSpan if time2 - time1 > attentionSpan else time2 - time1
 			workTime = timeToComplete if workTime > timeToComplete else workTime
 			workStartTime = time1
 			workEndTime = workStartTime + workTime
-			print(workStartTime.hour)
-			print(workEndTime.hour)
-			if workStartTime.hour > 5 and workEndTime.hour < sleepBegin and workEndTime.hour > 5: #huge bug: this if statement doesn't work
-				print("made it")
+			if workStartTime.hour >= sleepEnd and workEndTime.hour < sleepBegin and workEndTime.hour >= sleepEnd:
 				workSessions.append((workStartTime, workEndTime))
 				events.insert(index, (workStartTime, workEndTime))
 				timeToComplete -= workTime
-		
+
 		time1 = events[index][1] + breakTime
 		index += 1
 
@@ -268,7 +276,7 @@ def main():
 	# list_pending_tasks()
 	test = raw_input("is this a test: ")
 	if (test == "y"):
-		add_assignment("test assignment", 2017, 1, 5, 10, 2, 15)
+		add_assignment("test assignment", 2017, 1, 5, 10, 2, 15, 15)
 	else:
 		sleepBegin = int(raw_input("what time do you normally go to sleep? enter as int, use 24-hr time. example: 22 for 10 pm."))
 		sleepEnd = int(raw_input("what time do you normally wake up? enter as int, use 24-hr time. example: 8 for 8 am."))
@@ -279,7 +287,8 @@ def main():
 		timeToComplete = raw_input("how long will this take to complete in hours? ")
 		attentionSpan = raw_input("what is your attention span in hours? ")
 		breakTime = raw_input("how much time do you need to break for in minutes? ")
-		add_assignment(assignment, int(year), int(month), int(day), int(timeToComplete), int(attentionSpan), int(breakTime))
+		minWorkTime = raw_input("what is the minimum number of minutes you'd like to work for at a stretch? ")
+		add_assignment(assignment, int(year), int(month), int(day), int(timeToComplete), int(attentionSpan), int(breakTime), int(minWorkTime))
 	# add_task(test, int(year), int(month), int(day))
 	# test_complete = raw_input("enter name of assignment to complete: ")
 	# complete_task(test_complete)
