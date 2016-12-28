@@ -31,4 +31,4 @@ Finally, reload your `~/.bashrc` file:
 `$ source ~/.bashrc`
 Credits to Google (https://developers.google.com/google-apps/tasks/quickstart/python) for the nice instructions.
 
-
+## If you have any errors or comments, please email shreya@cs.stanford.edu!
