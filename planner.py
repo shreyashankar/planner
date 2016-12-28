@@ -140,6 +140,35 @@ def pull_stuff():
         else:
    			print(times, event['summary'], event['location'])
 
+def list_events(numEvents = 10):
+	calendar_credentials = get_calendar_credentials()
+	http = calendar_credentials.authorize(httplib2.Http())
+	service = discovery.build('calendar', 'v3', http=http)
+
+	now = datetime.utcnow().isoformat() + 'Z' # 'Z' indicates UTC time
+	print('Getting the upcoming 10 events')
+	eventsResult = service.events().list(
+		calendarId='primary', timeMin=now, maxResults=numEvents, singleEvents=True,
+		orderBy='startTime').execute()
+	events = eventsResult.get('items', [])
+
+	if not events:
+		print('No upcoming events found.')
+	
+	for event in events:
+		start = event['start'].get('dateTime', event['start'].get('date'))
+		end = event['end'].get('dateTime', event['end'].get('date'))
+
+		sdt = dateutil.parser.parse(start)
+		edt = dateutil.parser.parse(end)
+		times = sdt.strftime('%I:%M') + " to " + edt.strftime('%I:%M')
+
+		if 'location' not in event:
+			print(times, event['summary'])
+		else:
+				print(times, event['summary'], event['location'])
+
+
 def add_task(name, due):
 	if name is "":
 		return
@@ -147,14 +176,27 @@ def add_task(name, due):
 	http = task_credentials.authorize(httplib2.Http())
 	service = discovery.build('tasks', 'v1', http=http)
 
-	due = due.isoformat() + str(".000Z")
+	due = due.isoformat() #+ str(".000Z")
 	task = {'title': name, 'due': due} #fix date
 	result = service.tasks().insert(tasklist='@default', body=task).execute()
 	assignments[name] = (result['id'], due)
 	print(result['id'])
 
+def populate_assignments(maxTasks = 100):
+	assignments.clear()
+	task_credentials = get_task_credentials()
+	http = task_credentials.authorize(httplib2.Http())
+	service = discovery.build('tasks', 'v1', http=http)
+	tasks = service.tasks().list(tasklist='@default', maxResults = maxTasks, showCompleted = False).execute()
+	for task in tasks['items']:
+		if task['title'] != "":
+			assignments[task['title']] = (task['id'], task['due'] if 'due' in task else None)
+
 def complete_task(taskName):
+	if len(assignments) == 0:
+		populate_assignments()
 	if taskName is "" or taskName not in assignments:
+		print("Sorry, we couldn't delete the task " + taskName + ".")
 		return
 	taskID = assignments[taskName][0]
 	task_credentials = get_task_credentials()
@@ -163,9 +205,10 @@ def complete_task(taskName):
 	task = service.tasks().get(tasklist='@default', task=taskID).execute()
 	task['status'] = 'completed'
 	result = service.tasks().update(tasklist='@default', task=task['id'], body=task).execute()
-	print(result['completed'])
+	print("Successfully completed. " + result['completed'])
 
 def list_pending_tasks(maxTasks = 100):
+	assignments.clear()
 	task_credentials = get_task_credentials()
 	http = task_credentials.authorize(httplib2.Http())
 	service = discovery.build('tasks', 'v1', http=http)
@@ -174,6 +217,8 @@ def list_pending_tasks(maxTasks = 100):
 		if task['title'] != "":
 			assignments[task['title']] = (task['id'], task['due'] if 'due' in task else None)
 			print(task['title'])
+	if len(assignments) == 0:
+		print("You have no pending tasks.")
 
 def add_calendar_event(name, location, description, start, end):
 	calendar_credentials = get_calendar_credentials()
@@ -245,10 +290,10 @@ def add_assignment(name, year, month, day, timeToComplete, attentionSpan, breakT
 		time2 = events[index][0] - breakTime
 		if time1.day != time2.day or time2.hour > sleepBegin:
 			sleepTonightBegin = time1.replace(hour = 22, minute = 0)
-			print(sleepTonightBegin)
+			#print(sleepTonightBegin)
 			sleepTonightEnd = sleepTonightBegin + timedelta(hours = (24 - sleepBegin + sleepEnd))
 			events.insert(index, (sleepTonightBegin, sleepTonightEnd))
-			print(sleepTonightEnd)
+			#print(sleepTonightEnd)
 			continue
 		
 		freetime = time2 - time1
@@ -273,37 +318,91 @@ def add_assignment(name, year, month, day, timeToComplete, attentionSpan, breakT
 		for item in workSessions:
 			print(item[0])
 			print(item[1])
-			#add_calendar_event("Work on " + name, "", "", item[0], item[1])
-			#add_task(due)
+			add_calendar_event("Work on " + name, "", "", item[0], item[1])
+		add_task(name, due)
+
+def change_sleep_times():
+	if sleepBegin > 12:
+		print("Currently, you sleep at " + str(sleepBegin % 12) + " PM and wake up at " + str(sleepEnd) + "AM.")
+	else:
+		print("Currently, you sleep at " + str(sleepBegin) + " AM and wake up at " + str(sleepEnd) + "AM.")
+		while True:
+			try:
+				sleepBeginString = raw_input("Ahat time do you normally go to sleep? Enter as int, use 24-hr time. Example: 22 for 10 pm.")
+				sleepBegin = int(sleepBeginString)
+				if sleepBegin > 24 or sleepBegin < 0:
+					continue
+				break
+			except ValueError:
+				print("Please enter an integer valid time.")
+		while True:
+			try:
+				sleepEndString = raw_input("What time do you normally wake up? Enter as int, use 24-hr time. Example: 8 for 8 am. You can't wake up after noon.")
+				if sleepEnd >= 12 or sleepEnd < 0:
+					continue
+				break
+			except ValueError:
+				print("Please enter an integer valid time.")
 
 
-
+def welcome():
+	print("\nEnter the number that corresponds to one of the following choices and enter, or only press enter to quit.")
+	print("1. List pending tasks")
+	print("2. List upcoming events")
+	print("3. Add a task and schedule times to work on it")
+	print("4. Mark a task as completed")
+	print("5. Reset sleep schedule (default is 10 pm bedtime, 7 am wake-up time)")
 
 
 def main():
-	#pull_stuff()
-
-	# list_pending_tasks()
 	test = raw_input("is this a test: ")
 	if (test == "y"):
 		add_assignment("test assignment", 2017, 1, 5, 10, 2, 15, 15)
-	else:
-		sleepBegin = int(raw_input("what time do you normally go to sleep? enter as int, use 24-hr time. example: 22 for 10 pm."))
-		sleepEnd = int(raw_input("what time do you normally wake up? enter as int, use 24-hr time. example: 8 for 8 am."))
-		assignment = raw_input("enter name of assignment to add: ")
-		dueDate = raw_input("enter the date that this is due (MM/DD/YYYY): ")
-		year = dueDate.split("/")[2]
-		month = dueDate.split("/")[0]
-		day = dueDate.split("/")[1]
-		timeToComplete = raw_input("how long will this take to complete in hours? ")
-		attentionSpan = raw_input("what is your attention span in hours? ")
-		breakTime = raw_input("how much time do you need to break for in minutes? ")
-		minWorkTime = raw_input("what is the minimum number of minutes you'd like to work for at a stretch? ")
-		#startDate = raw_input("when would you like to start working on this assignment? MM/DD/YYYY")
-		add_assignment(assignment, int(year), int(month), int(day), int(timeToComplete), int(attentionSpan), int(breakTime), int(minWorkTime))
-	# add_task(test, int(year), int(month), int(day))
-	# test_complete = raw_input("enter name of assignment to complete: ")
-	# complete_task(test_complete)
+		return
+
+	print("Welcome to the planner!")
+	while True:
+		choice = "choice"
+		while choice != "1" and choice != "2" and choice != "3" and choice != "4" and choice != "5" and choice != "":
+			welcome()
+			choice = raw_input("")
+		if choice == "":
+			break
+		choice = int(choice)
+		print()
+		if choice == 1:
+			numTasks = raw_input("What is the maximum number of tasks you'd like to see? Press enter for a default of 100.\n")
+			try:
+				num = int(numTasks)
+				list_pending_tasks(num)
+			except ValueError:
+				list_pending_tasks()
+		elif choice == 2:
+			numEvents = raw_input("What is the maximum number of events you'd like to see? Press enter for a default of 10.\n")
+			try:
+				num = int(numEvents)
+				list_events(num)
+			except ValueError:
+				list_events()
+		elif choice == 3:
+			assignment = raw_input("Enter name of assignment/task to add: ")
+			dueDate = raw_input("Enter the date that this is due (MM/DD/YYYY): ")
+			year = dueDate.split("/")[2]
+			month = dueDate.split("/")[0]
+			day = dueDate.split("/")[1]
+			timeToComplete = raw_input("How long will this take to complete in hours? ")
+			attentionSpan = raw_input("What is your attention span in hours? ")
+			breakTime = raw_input("How much time do you need to break for in minutes? ")
+			minWorkTime = raw_input("What is the minimum number of minutes you'd like to work for at a stretch? ")
+			#startDate = raw_input("when would you like to start working on this assignment? MM/DD/YYYY")
+			add_assignment(assignment, int(year), int(month), int(day), int(timeToComplete), int(attentionSpan), int(breakTime), int(minWorkTime))
+		elif choice == 4:
+			task = raw_input("What is the name of the task you'd like to mark as completed?\n")
+			complete_task(task)
+		elif choice == 5:
+			change_sleep_times()
+
+	print("\nThanks for using the planner!")
 
 
 
