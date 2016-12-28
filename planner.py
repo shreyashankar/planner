@@ -215,12 +215,22 @@ def get_next_events(numEvents = 100):
 		#print(times, event['summary'])
 	return eventList
 
+def populate_event_list():
+	events = get_next_events()
+	today = datetime.now(pytz.utc)
+	today = today.astimezone(tz.tzlocal())
+	event1 = (today + timedelta(days = 365), today + timedelta(days = 366))
+	event2 = (today + timedelta(days = 368), today + timedelta(days = 369))
+	events.append(event1)
+	events.append(event2)
+	return events
+
 def add_assignment(name, year, month, day, timeToComplete, attentionSpan, breakTime, minWorkTime = 15):
 
 	due = datetime(year, month, day, tzinfo=datetime.now(pytz.utc).tzinfo)
 	due = due.astimezone(tz.tzlocal())
 
-	events = get_next_events()
+	events = populate_event_list()
 	workSessions = list()
 	timeToComplete = timedelta(hours = timeToComplete)
 	attentionSpan = timedelta(hours = attentionSpan)
@@ -281,13 +291,15 @@ def main():
 		sleepBegin = int(raw_input("what time do you normally go to sleep? enter as int, use 24-hr time. example: 22 for 10 pm."))
 		sleepEnd = int(raw_input("what time do you normally wake up? enter as int, use 24-hr time. example: 8 for 8 am."))
 		assignment = raw_input("enter name of assignment to add: ")
-		year = raw_input("enter year this is due: ")
-		month = raw_input("enter month this is due: ")
-		day = raw_input("enter day this is due: ")
+		dueDate = raw_input("enter the date that this is due (MM/DD/YYYY): ")
+		year = dueDate.split("/")[2]
+		month = dueDate.split("/")[0]
+		day = dueDate.split("/")[1]
 		timeToComplete = raw_input("how long will this take to complete in hours? ")
 		attentionSpan = raw_input("what is your attention span in hours? ")
 		breakTime = raw_input("how much time do you need to break for in minutes? ")
 		minWorkTime = raw_input("what is the minimum number of minutes you'd like to work for at a stretch? ")
+		#startDate = raw_input("when would you like to start working on this assignment? MM/DD/YYYY")
 		add_assignment(assignment, int(year), int(month), int(day), int(timeToComplete), int(attentionSpan), int(breakTime), int(minWorkTime))
 	# add_task(test, int(year), int(month), int(day))
 	# test_complete = raw_input("enter name of assignment to complete: ")
