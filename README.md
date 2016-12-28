@@ -8,6 +8,6 @@ Install pip:
 Mac OSX users: run `sudo easy_install pip` in Terminal.
 Windows users: see http://stackoverflow.com/questions/4750806/how-do-i-install-pip-on-windows -- download `get-pip.py` and run `python get-pip.py` as mentioned in stackoverflow.
 
-In terminal or command prompt, run `pip install --upgrade google-api-python-client` or follow instructions in https://developers.google.com/api-client-library/python/start/installation.
+In terminal or command prompt, run `sudo pip install --upgrade google-api-python-client` or follow instructions in https://developers.google.com/api-client-library/python/start/installation.
 
 
