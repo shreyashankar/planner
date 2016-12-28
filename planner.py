@@ -264,8 +264,8 @@ def populate_event_list():
 	events = get_next_events()
 	today = datetime.now(pytz.utc)
 	today = today.astimezone(tz.tzlocal())
-	event1 = (today + timedelta(days = 365), today + timedelta(days = 366))
-	event2 = (today + timedelta(days = 368), today + timedelta(days = 369))
+	event1 = (today + timedelta(days = 1), today + timedelta(days = 2)) #THIS DOESN'T QUITE WORK!
+	event2 = (today + timedelta(days = 3), today + timedelta(days = 4))
 	events.append(event1)
 	events.append(event2)
 	return events
