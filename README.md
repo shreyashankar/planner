@@ -36,7 +36,7 @@ On Mac OSX, you can execute:
 
 ## Common errors
 
-`AttributeError: 'Module_six_moves_urllib_parse' object has no attribute 'urlparse'`
+### `AttributeError: 'Module_six_moves_urllib_parse' object has no attribute 'urlparse'`
 
 First, find pip's install location with the command:
 
@@ -51,5 +51,9 @@ Finally, reload your `~/.bashrc` file:
 `$ source ~/.bashrc`
 
 Credits to Google (https://developers.google.com/google-apps/tasks/quickstart/python) for the nice instructions.
+
+### no 'pytz'
+
+Run `pip install pytz`.
 
 ## If you have any errors or comments, please email shreya@cs.stanford.edu!
