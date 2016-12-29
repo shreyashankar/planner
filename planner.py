@@ -34,8 +34,11 @@ CALENDAR_APPLICATION_NAME = 'Google Calendar API Python Quickstart'
 TASK_APPLICATION_NAME = 'Google Task API Python Quickstart'
 
 assignments = {}
-sleepBegin = 22
-sleepEnd = 7
+sleepBeginHour = 22
+sleepBeginMinute = 0
+sleepEndHour = 8
+sleepEndMinute = 0
+sleepMinutes = 600
 
 
 def get_calendar_credentials():
@@ -288,10 +291,10 @@ def add_assignment(name, year, month, day, timeToComplete, attentionSpan, breakT
 	while(timeToComplete.total_seconds() > 0):
 		
 		time2 = events[index][0] - breakTime
-		if time1.day != time2.day or time2.hour > sleepBegin:
-			sleepTonightBegin = time1.replace(hour = 22, minute = 0)
+		if time1.day != time2.day or time2.hour > sleepBeginHour:
+			sleepTonightBegin = time1.replace(hour = sleepBeginHour, minute = sleepBeginMinute, second = 0)
 			#print(sleepTonightBegin)
-			sleepTonightEnd = sleepTonightBegin + timedelta(hours = (24 - sleepBegin + sleepEnd))
+			sleepTonightEnd = sleepTonightBegin + timedelta(minutes = sleepMinutes)
 			events.insert(index, (sleepTonightBegin, sleepTonightEnd))
 			#print(sleepTonightEnd)
 			continue
@@ -303,7 +306,7 @@ def add_assignment(name, year, month, day, timeToComplete, attentionSpan, breakT
 			workTime = timeToComplete if workTime > timeToComplete else workTime
 			workStartTime = time1
 			workEndTime = workStartTime + workTime
-			if workStartTime.hour >= sleepEnd and workEndTime.hour < sleepBegin and workEndTime.hour >= sleepEnd:
+			if workStartTime.hour >= sleepEndHour and workEndTime.hour < sleepBeginHour and workEndTime.hour >= sleepEndHour:
 				workSessions.append((workStartTime, workEndTime))
 				events.insert(index, (workStartTime, workEndTime))
 				timeToComplete -= workTime
@@ -316,33 +319,48 @@ def add_assignment(name, year, month, day, timeToComplete, attentionSpan, breakT
 	else:
 		print("Printing time sessions: ")
 		for item in workSessions:
-			print("Start: " + item[0])
-			print("End: " + item[1])
+			print("Start: " + str(item[0]))
+			print("End: " + str(item[1]))
 			add_calendar_event("Work on " + name, "", "", item[0], item[1])
 		add_task(name, due)
 
 def change_sleep_times():
-	if sleepBegin > 12:
-		print("Currently, you sleep at " + str(sleepBegin % 12) + " PM and wake up at " + str(sleepEnd) + "AM.")
+	global sleepBeginHour
+	global sleepBeginMinute
+	global sleepEndHour
+	global sleepEndMinute
+	global sleepMinutes
+	if sleepBeginHour > 12:
+		print("Currently, you sleep at " + str(sleepBeginHour % 12) + ":" + str(sleepBeginMinute) + " PM and wake up at " + str(sleepEndHour) + ":" + str(sleepEndMinute) + " AM.") #format minute string
 	else:
-		print("Currently, you sleep at " + str(sleepBegin) + " AM and wake up at " + str(sleepEnd) + "AM.")
-		while True:
-			try:
-				sleepBeginString = raw_input("Ahat time do you normally go to sleep? Enter as int, use 24-hr time. Example: 22 for 10 pm.")
-				sleepBegin = int(sleepBeginString)
-				if sleepBegin > 24 or sleepBegin < 0:
-					continue
-				break
-			except ValueError:
-				print("Please enter an integer valid time.")
-		while True:
-			try:
-				sleepEndString = raw_input("What time do you normally wake up? Enter as int, use 24-hr time. Example: 8 for 8 am. You can't wake up after noon.")
-				if sleepEnd >= 12 or sleepEnd < 0:
-					continue
-				break
-			except ValueError:
-				print("Please enter an integer valid time.")
+		print("Currently, you sleep at " + str(sleepBeginHour) + ":" + str(sleepBeginMinute) + " AM and wake up at " + str(sleepEndHour) + ":" + str(sleepEndMinute) + " AM.")
+	while True:
+		try:
+			sleepBeginString = raw_input("What time do you normally go to sleep? Use 24-hr time in format HH:MM. Example: 22:00 for 10 PM.")
+			sleepBeginHour = int(sleepBeginString.split(":")[0])
+			sleepBeginMinute = int(sleepBeginString.split(":")[1])
+			if sleepBeginHour > 24 or sleepBeginHour < 0:
+				continue
+			if sleepBeginMinute > 59 or sleepBeginMinute < 0:
+				continue
+			break
+		except ValueError:
+			print("Please enter an valid time.")
+	while True:
+		try:
+			sleepEndString = raw_input("What time do you normally wake up? Use 24-hr time in format HH:MM. Example: 8:00 for 8 AM. You can't wake up after noon.")
+			sleepEndHour = int(sleepEndString.split(":")[0])
+			sleepEndMinute = int(sleepEndString.split(":")[1])
+			if sleepEndHour >= 12 or sleepEndHour < 0:
+				continue
+			if sleepEndMinute > 59 or sleepEndMinute < 0:
+				continue
+			break
+		except ValueError:
+			print("Please enter a valid time.")
+	wakeUpMinutes = sleepEndMinute + 60 * sleepEndHour
+	asleepMinutes = sleepBeginMinute + 60 * sleepBeginHour
+	sleepMinutes = (wakeUpMinutes - asleepMinutes) if wakeUpMinutes > asleepMinutes else (24 * 60 - asleepMinutes + wakeUpMinutes)
 
 
 def welcome():
