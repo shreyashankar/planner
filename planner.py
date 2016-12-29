@@ -321,8 +321,8 @@ def add_assignment(name, year, month, day, timeToComplete, attentionSpan, breakT
 		for item in workSessions:
 			print("Start: " + str(item[0]))
 			print("End: " + str(item[1]))
-			add_calendar_event("Work on " + name, "", "", item[0], item[1])
-		add_task(name, due)
+			#add_calendar_event("Work on " + name, "", "", item[0], item[1])
+		#add_task(name, due)
 
 def change_sleep_times():
 	global sleepBeginHour
@@ -373,10 +373,10 @@ def welcome():
 
 
 def main():
-	test = raw_input("is this a test: ")
-	if (test == "y"):
-		add_assignment("test assignment", 2017, 1, 5, 10, 2, 15, 15)
-		return
+	# test = raw_input("is this a test: ")
+	# if (test == "y"):
+	# 	add_assignment("test assignment", 2017, 1, 5, 10, 2, 15, 15)
+	# 	return
 
 	print("Welcome to the planner!")
 	while True:
