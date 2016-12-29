@@ -166,7 +166,7 @@ def list_events(numEvents = 10):
 		if 'location' not in event:
 			print(times, event['summary'])
 		else:
-				print(times, event['summary'], event['location'])
+			print(times, event['summary'], event['location'])
 
 
 def add_task(name, due):
@@ -316,8 +316,8 @@ def add_assignment(name, year, month, day, timeToComplete, attentionSpan, breakT
 	else:
 		print("Printing time sessions: ")
 		for item in workSessions:
-			print(item[0])
-			print(item[1])
+			print("Start: " + item[0])
+			print("End: " + item[1])
 			add_calendar_event("Work on " + name, "", "", item[0], item[1])
 		add_task(name, due)
 
@@ -395,7 +395,7 @@ def main():
 			breakTime = raw_input("How much time do you need to break for in minutes? ")
 			minWorkTime = raw_input("What is the minimum number of minutes you'd like to work for at a stretch? ")
 			#startDate = raw_input("when would you like to start working on this assignment? MM/DD/YYYY")
-			add_assignment(assignment, int(year), int(month), int(day), int(timeToComplete), int(attentionSpan), int(breakTime), int(minWorkTime))
+			add_assignment(assignment, int(year), int(month), int(day), float(timeToComplete), float(attentionSpan), float(breakTime), float(minWorkTime))
 		elif choice == 4:
 			task = raw_input("What is the name of the task you'd like to mark as completed?\n")
 			complete_task(task)
