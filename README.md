@@ -1,5 +1,10 @@
 # planner
-A "smart" planner that determines when to study, work on assignments, etc.
+A "smart" planner that determines when to study, work on assignments, etc. You must have a Google account because it works with Tasks and Calendar.
+
+## Features
+- List pending tasks
+- List upcoming events
+- Schedule a task/assignment and times to work on the task/assignment. You can provide the due date, estimated length of homework (ex: 10 hours), maximum time you can work for at a stretch, and approximately when you sleep. The planner will schedule times for you to work on the assignment such that you complete it before the due date, you can still attend all your other events, and you won't be overwhelmed. 
 
 ## Install dependencies
 Make sure you have python 2.7 installed. If you don't, you can install it online. For Windows people, check out http://www.howtogeek.com/197947/how-to-install-python-on-windows/!
