@@ -321,8 +321,8 @@ def add_assignment(name, year, month, day, timeToComplete, attentionSpan, breakT
 		for item in workSessions:
 			print("Start: " + str(item[0]))
 			print("End: " + str(item[1]))
-			#add_calendar_event("Work on " + name, "", "", item[0], item[1])
-		#add_task(name, due)
+			add_calendar_event("Work on " + name, "", "", item[0], item[1])
+		add_task(name, due)
 
 def change_sleep_times():
 	global sleepBeginHour
@@ -336,7 +336,7 @@ def change_sleep_times():
 		print("Currently, you sleep at " + str(sleepBeginHour) + ":" + str(sleepBeginMinute) + " AM and wake up at " + str(sleepEndHour) + ":" + str(sleepEndMinute) + " AM.")
 	while True:
 		try:
-			sleepBeginString = raw_input("What time do you normally go to sleep? Use 24-hr time in format HH:MM. Example: 22:00 for 10 PM.")
+			sleepBeginString = raw_input("What time do you normally go to sleep? Use 24-hr time in format HH:MM. Example: 22:00 for 10 PM.\n")
 			sleepBeginHour = int(sleepBeginString.split(":")[0])
 			sleepBeginMinute = int(sleepBeginString.split(":")[1])
 			if sleepBeginHour > 24 or sleepBeginHour < 0:
@@ -348,7 +348,7 @@ def change_sleep_times():
 			print("Please enter an valid time.")
 	while True:
 		try:
-			sleepEndString = raw_input("What time do you normally wake up? Use 24-hr time in format HH:MM. Example: 8:00 for 8 AM. You can't wake up after noon.")
+			sleepEndString = raw_input("What time do you normally wake up? Use 24-hr time in format HH:MM. Example: 8:00 for 8 AM. You can't wake up after noon.\n")
 			sleepEndHour = int(sleepEndString.split(":")[0])
 			sleepEndMinute = int(sleepEndString.split(":")[1])
 			if sleepEndHour >= 12 or sleepEndHour < 0:
