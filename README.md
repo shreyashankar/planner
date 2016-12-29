@@ -24,6 +24,8 @@ In terminal or command prompt, run `sudo pip install --upgrade google-api-python
 - ImportError no pytz: pip install pytz
 - ImportError no dateutil-parser: pip install python-dateutil
 
+Credits to Valerie Ding for extra Windows instructions.
+
 ## Run python program
 Download the contents in this folder as a zip file. Navigate to the folder you downloaded to in Terminal or Command Prompt:
 
