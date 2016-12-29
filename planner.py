@@ -141,7 +141,7 @@ def pull_stuff():
         if 'location' not in event:
         	print(times, event['summary'])
         else:
-   			print(times, event['summary'], event['location'])
+			print(times, event['summary'], event['location'])
 
 def list_events(numEvents = 10):
 	calendar_credentials = get_calendar_credentials()
