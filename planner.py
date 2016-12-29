@@ -130,17 +130,17 @@ def pull_stuff():
     if not events:
         print('No upcoming events found.')
     for event in events:
-    	#print(event)
-        start = event['start'].get('dateTime', event['start'].get('date'))
-        end = event['end'].get('dateTime', event['end'].get('date'))
+		#print(event)
+		start = event['start'].get('dateTime', event['start'].get('date'))
+		end = event['end'].get('dateTime', event['end'].get('date'))
 
-        sdt = dateutil.parser.parse(start)
-        edt = dateutil.parser.parse(end)
-        times = sdt.strftime('%I:%M') + " to " + edt.strftime('%I:%M')
+		sdt = dateutil.parser.parse(start)
+		edt = dateutil.parser.parse(end)
+		times = sdt.strftime('%I:%M') + " to " + edt.strftime('%I:%M')
 
-        if 'location' not in event:
-        	print(times, event['summary'])
-        else:
+		if 'location' not in event:
+			print(times, event['summary'])
+		else:
 			print(times, event['summary'], event['location'])
 
 def list_events(numEvents = 10):
