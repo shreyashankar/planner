@@ -18,6 +18,12 @@ Windows users: see http://stackoverflow.com/questions/4750806/how-do-i-install-p
 
 In terminal or command prompt, run `sudo pip install --upgrade google-api-python-client` or follow instructions in https://developers.google.com/api-client-library/python/start/installation.
 
+### For Windows users who are using built-in machine command prompt, have downloaded Python 2.7 and setup pip:
+
+- You must unzip or otherwise access planner-master internal directory in order for cmd to recognize planner-master in your Downloads folder.
+- ImportError no pytz: pip install pytz
+- ImportError no dateutil-parser: pip install python-dateutil
+
 ## Run python program
 Download the contents in this folder as a zip file. Navigate to the folder you downloaded to in Terminal or Command Prompt:
 
