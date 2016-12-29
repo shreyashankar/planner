@@ -65,4 +65,8 @@ Credits to Google (https://developers.google.com/google-apps/tasks/quickstart/py
 
 Run `pip install pytz`.
 
+### raw_input not defined
+
+This means you are in python 3. Replace all instances of `raw_input` in the code with just `input`.
+
 ## If you have any errors or comments, please email shreya@cs.stanford.edu!
