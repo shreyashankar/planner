@@ -23,6 +23,7 @@ In terminal or command prompt, run `sudo pip install --upgrade google-api-python
 - You must unzip or otherwise access planner-master internal directory in order for cmd to recognize planner-master in your Downloads folder.
 - ImportError no pytz: `pip install pytz`
 - ImportError no dateutil-parser: `pip install python-dateutil`
+- ImportError no httplib2: `pip install httplib2`
 
 Credits to Valerie Ding for extra Windows instructions.
 
