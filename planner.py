@@ -97,52 +97,6 @@ def get_task_credentials():
         print('Storing credentials to ' + credential_path)
     return credentials
 
-def pull_stuff():
-    """Shows basic usage of the Google Calendar API.
-
-    Creates a Google Calendar API service object and outputs a list of the next
-    10 events on the user's calendar.
-    """
-    task_credentials = get_task_credentials()
-    http = task_credentials.authorize(httplib2.Http())
-    service = discovery.build('tasks', 'v1', http=http)
-
-    tasks = service.tasks().list(tasklist='@default').execute()
-    for task in tasks['items']:
-    	assignments[task['title']] = task['id']
-    	# if 'due' in task:
-    	# 	print(task['title'], task['due'])
-    	# else:
-    	# 	print(task['title'])
-    print(assignments)
-
-    calendar_credentials = get_calendar_credentials()
-    http = calendar_credentials.authorize(httplib2.Http())
-    service = discovery.build('calendar', 'v3', http=http)
-
-    now = datetime.utcnow().isoformat() + 'Z' # 'Z' indicates UTC time
-    print('Getting the upcoming 10 events')
-    eventsResult = service.events().list(
-        calendarId='primary', timeMin=now, maxResults=10, singleEvents=True,
-        orderBy='startTime').execute()
-    events = eventsResult.get('items', [])
-
-    if not events:
-        print('No upcoming events found.')
-    for event in events:
-		#print(event)
-		start = event['start'].get('dateTime', event['start'].get('date'))
-		end = event['end'].get('dateTime', event['end'].get('date'))
-
-		sdt = dateutil.parser.parse(start)
-		edt = dateutil.parser.parse(end)
-		times = sdt.strftime('%I:%M') + " to " + edt.strftime('%I:%M')
-
-		if 'location' not in event:
-			print(times, event['summary'])
-		else:
-			print(times, event['summary'], event['location'])
-
 def list_events(numEvents = 10):
 	calendar_credentials = get_calendar_credentials()
 	http = calendar_credentials.authorize(httplib2.Http())
