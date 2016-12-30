@@ -221,7 +221,10 @@ def populate_event_list(startDate):
 	if startDate == "":
 		now = datetime.utcnow().isoformat() + 'Z' # 'Z' indicates UTC time
 	else:
-		now = datetime(int(startDate.split("/")[2]), int(startDate.split("/")[0]), int(startDate.split("/")[1]), tzinfo=tz.tzlocal()).isoformat()
+		now = datetime(int(startDate.split("/")[2]), int(startDate.split("/")[0]), int(startDate.split("/")[1]), tzinfo=tz.tzlocal())
+		if now < datetime.now(pytz.utc):
+			now = datetime.now(pytz.utc)
+		now = now.isoformat()
 
 	events = get_next_events(now)
 	today = datetime.now(pytz.utc)
@@ -243,12 +246,14 @@ def add_assignment(name, year, month, day, timeToComplete, attentionSpan, breakT
 		time1 = time1.astimezone(tz.tzlocal())
 	else:
 		time1 = datetime(int(startDate.split("/")[2]), int(startDate.split("/")[0]), int(startDate.split("/")[1]), tzinfo=tz.tzlocal())
+		if time1 < datetime.now(pytz.utc) + travelTime:
+			time1 = datetime.now(pytz.utc) + travelTime
 
 	events = populate_event_list(startDate)
 	workSessions = list()
 	timeToComplete = timedelta(hours = timeToComplete)
 	attentionSpan = timedelta(hours = attentionSpan)
-	breakTime = timedelta(minutes = breakTime)
+	breakTime = timedelta(hours = breakTime)
 	minWorkTime = timedelta(minutes = minWorkTime)
 	index = 0
 
@@ -346,7 +351,7 @@ def welcome():
 def main():
 	test = raw_input("is this a test: ")
 	if (test == "y"):
-		add_assignment("test assignment", 2017, 1, 10, 10, 2, 180, "1/1/2017", 15, 15)
+		add_assignment("test assignment", 2017, 1, 10, 10, 2, 3, "1/1/2016", 15, 15)
 		return
 
 	print("Welcome to the planner!")
@@ -381,11 +386,10 @@ def main():
 			day = dueDate.split("/")[1]
 			timeToComplete = raw_input("How long will this take to complete in hours? ")
 			attentionSpan = raw_input("What is your attention span in hours? ")
-			breakTime = raw_input("How much time do you need to break for between study sessions (in minutes)? ")
+			breakTime = raw_input("How much time do you need to break for between study sessions (in hours)? ")
 			minWorkTime = raw_input("What is the minimum number of minutes you'd like to work for at a stretch? ")
 			travelTime = raw_input("What is the amount of time in minutes required to travel to the next event? This is used as a buffer between events existing on your calendar and study sessions being planned. ")
-			dueDate = raw_input("Enter the date you would like to start working on this (MM/DD/YYYY) or blank for today: ")
-			#startDate = raw_input("when would you like to start working on this assignment? MM/DD/YYYY")
+			startDate = raw_input("Enter the date you would like to start working on this (MM/DD/YYYY) or blank for today: ") #make sure start time is after today
 			add_assignment(assignment, int(year), int(month), int(day), float(timeToComplete), float(attentionSpan), float(breakTime), startDate, float(minWorkTime), float(travelTime))
 		elif choice == 4:
 			task = raw_input("What is the name of the task you'd like to mark as completed?\n")
