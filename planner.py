@@ -145,17 +145,17 @@ class Planner:
 		due = due.isoformat() #+ str(".000Z")
 		task = {'title': name, 'due': due} #fix date
 		result = service.tasks().insert(tasklist='@default', body=task).execute()
-		assignments[name] = (result['id'], due)
+		self.assignmentsDictionary[name] = (result['id'], due)
 		return result['id']
 
 
 	def complete_task(self, taskName):
-		if len(assignments) == 0:
-			populate_assignments()
-		if taskName is "" or taskName not in assignments:
+		if len(self.assignmentsDictionary) == 0:
+			self.populate_assignments()
+		if taskName is "" or taskName not in self.assignmentsDictionary:
 			print("Sorry, we couldn't delete the task " + taskName + ".")
 			return
-		taskID = assignments[taskName][0]
+		taskID = self.assignmentsDictionary[taskName][0]
 		task_credentials = self.get_task_credentials()
 		http = task_credentials.authorize(httplib2.Http())
 		service = discovery.build('tasks', 'v1', http=http)
@@ -165,7 +165,7 @@ class Planner:
 		print("Successfully completed. " + result['completed'])
 
 	def list_pending_tasks(self, maxTasks = 100):
-		assignments.clear()
+		self.assignmentsDictionary.clear()
 		task_credentials = self.get_task_credentials()
 		http = task_credentials.authorize(httplib2.Http())
 		service = discovery.build('tasks', 'v1', http=http)
@@ -174,7 +174,7 @@ class Planner:
 			if task['title'] != "":
 				self.assignmentsDictionary[task['title']] = (task['id'], task['due'] if 'due' in task else None)
 				print(task['title'])
-		if len(assignments) == 0:
+		if len(self.assignmentsDictionary) == 0:
 			print("You have no pending tasks.")
 
 	def add_calendar_event(self, name, location, description, start, end):
@@ -221,6 +221,11 @@ class Planner:
 			times = sdt.strftime('%y/%m/%d %I:%M') + " to " + edt.strftime('%I:%M')
 			#print(times, event['summary'])
 		return eventList
+
+	def print_eventsDictionary(self):
+		for event in self.eventsDictionary:
+			print(event)
+			print(self.eventsDictionary[event])
 
 	def populate_event_list(self, startDate, due):
 		now = None
@@ -355,6 +360,7 @@ def main():
 	test = raw_input("is this a test: ")
 	if (test == "y"):
 		p.add_assignment("test assignment", 2017, 1, 10, 10, 2, 3, "1/1/2017", 15, 15)
+		p.print_eventsDictionary()
 		return
 
 	print("Welcome to the planner!")
