@@ -33,14 +33,6 @@ TASK_CLIENT_SECRET_FILE = 'task_client_secret.json'
 CALENDAR_APPLICATION_NAME = 'Google Calendar API Python Quickstart'
 TASK_APPLICATION_NAME = 'Google Task API Python Quickstart'
 
-assignments = {}
-sleepBeginHour = 22
-sleepBeginMinute = 0
-sleepEndHour = 8
-sleepEndMinute = 0
-sleepMinutes = 600
-eventsDictionary = {}
-
 class Planner:
 	def __init__(self):
 		self.assignmentsDictionary = {}
