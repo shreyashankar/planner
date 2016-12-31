@@ -434,7 +434,7 @@ def cbc(option, tex):
 		s += "What is the maximum number of events you'd like to see? Press enter for a default of 10.\n\n"
 		tex.insert(END, s)
 		tex.see(END)
-		b = Button(top, text = 'Submit', command = rawinputeqiv(option, tex))
+		b = Button(top, text = 'Submit', command = submitcallback(option, tex))
 		b.pack(side = BOTTOM)
 	elif option == 3:
 		s += "Enter name of assignment/task to add: "
