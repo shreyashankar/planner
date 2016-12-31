@@ -39,341 +39,314 @@ sleepBeginMinute = 0
 sleepEndHour = 8
 sleepEndMinute = 0
 sleepMinutes = 600
+eventsDictionary = {}
 
+class Planner:
+	def __init__(self):
+		self.assignmentsDictionary = {}
+		self.populate_assignments()
+		self.sleepBeginHour = 22
+		self.sleepEndHour = 8
+		self.sleepBeginMinute = 0
+		self.sleepEndMinute = 0
+		self.sleepMinutes = 600
+		self.eventsDictionary = {}
 
-def get_calendar_credentials():
-    """Gets valid user credentials from storage.
-    If nothing has been stored, or if the stored credentials are invalid,
-    the OAuth2 flow is completed to obtain the new credentials.
-    Returns:
-        Credentials, the obtained credential.
-    """
-    home_dir = os.path.expanduser('~')
-    credential_dir = os.path.join(home_dir, '.credentials')
-    if not os.path.exists(credential_dir):
-        os.makedirs(credential_dir)
-    credential_path = os.path.join(credential_dir,
-                                   'calendar-python-quickstart.json')
+	def get_calendar_credentials(self):
+		"""Gets valid user credentials from storage.
+		If nothing has been stored, or if the stored credentials are invalid,
+		the OAuth2 flow is completed to obtain the new credentials.
+		Returns:
+		    Credentials, the obtained credential.
+		"""
+		home_dir = os.path.expanduser('~')
+		credential_dir = os.path.join(home_dir, '.credentials')
+		if not os.path.exists(credential_dir):
+		    os.makedirs(credential_dir)
+		credential_path = os.path.join(credential_dir,
+		                               'calendar-python-quickstart.json')
 
-    store = Storage(credential_path)
-    credentials = store.get()
-    if not credentials or credentials.invalid:
-        flow = client.flow_from_clientsecrets(CALENDAR_CLIENT_SECRET_FILE, CALENDAR_SCOPES)
-        flow.user_agent = CALENDAR_APPLICATION_NAME
-        if flags:
-            credentials = tools.run_flow(flow, store, flags)
-        else: # Needed only for compatibility with Python 2.6
-            credentials = tools.run(flow, store)
-        print('Storing credentials to ' + credential_path)
-    return credentials
+		store = Storage(credential_path)
+		credentials = store.get()
+		if not credentials or credentials.invalid:
+		    flow = client.flow_from_clientsecrets(CALENDAR_CLIENT_SECRET_FILE, CALENDAR_SCOPES)
+		    flow.user_agent = CALENDAR_APPLICATION_NAME
+		    if flags:
+		        credentials = tools.run_flow(flow, store, flags)
+		    else: # Needed only for compatibility with Python 2.6
+		        credentials = tools.run(flow, store)
+		    print('Storing credentials to ' + credential_path)
+		return credentials
 
-def get_task_credentials():
-    """Gets valid user credentials from storage.
-    If nothing has been stored, or if the stored credentials are invalid,
-    the OAuth2 flow is completed to obtain the new credentials.
-    Returns:
-        Credentials, the obtained credential.
-    """
-    home_dir = os.path.expanduser('~')
-    credential_dir = os.path.join(home_dir, '.credentials')
-    if not os.path.exists(credential_dir):
-        os.makedirs(credential_dir)
-    credential_path = os.path.join(credential_dir,
-                                   'tasks-python-quickstart.json')
+	def get_task_credentials(self):
+		"""Gets valid user credentials from storage.
+		If nothing has been stored, or if the stored credentials are invalid,
+		the OAuth2 flow is completed to obtain the new credentials.
+		Returns:
+		    Credentials, the obtained credential.
+		"""
+		home_dir = os.path.expanduser('~')
+		credential_dir = os.path.join(home_dir, '.credentials')
+		if not os.path.exists(credential_dir):
+		    os.makedirs(credential_dir)
+		credential_path = os.path.join(credential_dir,
+		                               'tasks-python-quickstart.json')
 
-    store = Storage(credential_path)
-    credentials = store.get()
-    if not credentials or credentials.invalid:
-        flow = client.flow_from_clientsecrets(TASK_CLIENT_SECRET_FILE, TASK_SCOPES)
-        flow.user_agent = TASK_APPLICATION_NAME
-        if flags:
-            credentials = tools.run_flow(flow, store, flags)
-        else: # Needed only for compatibility with Python 2.6
-            credentials = tools.run(flow, store)
-        print('Storing credentials to ' + credential_path)
-    return credentials
+		store = Storage(credential_path)
+		credentials = store.get()
+		if not credentials or credentials.invalid:
+		    flow = client.flow_from_clientsecrets(TASK_CLIENT_SECRET_FILE, TASK_SCOPES)
+		    flow.user_agent = TASK_APPLICATION_NAME
+		    if flags:
+		        credentials = tools.run_flow(flow, store, flags)
+		    else: # Needed only for compatibility with Python 2.6
+		        credentials = tools.run(flow, store)
+		    print('Storing credentials to ' + credential_path)
+		return credentials
 
-def list_events(numEvents = 10):
-	calendar_credentials = get_calendar_credentials()
-	http = calendar_credentials.authorize(httplib2.Http())
-	service = discovery.build('calendar', 'v3', http=http)
+	def populate_assignments(self, maxTasks = 100):
+		self.assignmentsDictionary.clear()
+		task_credentials = self.get_task_credentials()
+		http = task_credentials.authorize(httplib2.Http())
+		service = discovery.build('tasks', 'v1', http=http)
+		tasks = service.tasks().list(tasklist='@default', maxResults = maxTasks, showCompleted = False).execute()
+		for task in tasks['items']:
+			if task['title'] != "":
+				self.assignmentsDictionary[task['title']] = (task['id'], task['due'] if 'due' in task else None)
 
-	now = datetime.utcnow().isoformat() + 'Z' # 'Z' indicates UTC time
-	print('Getting the upcoming 10 events')
-	eventsResult = service.events().list(
-		calendarId='primary', timeMin=now, maxResults=numEvents, singleEvents=True,
-		orderBy='startTime').execute()
-	events = eventsResult.get('items', [])
+	def list_events(self, numEvents = 10):
+		calendar_credentials = self.get_calendar_credentials()
+		http = calendar_credentials.authorize(httplib2.Http())
+		service = discovery.build('calendar', 'v3', http=http)
 
-	if not events:
-		print('No upcoming events found.')
-	
-	for event in events:
-		start = event['start'].get('dateTime', event['start'].get('date'))
-		end = event['end'].get('dateTime', event['end'].get('date'))
-
-		sdt = dateutil.parser.parse(start)
-		edt = dateutil.parser.parse(end)
-		times = sdt.strftime('%I:%M') + " to " + edt.strftime('%I:%M')
-
-		if 'location' not in event:
-			print(times, event['summary'])
-		else:
-			print(times, event['summary'], event['location'])
-
-
-def add_task(name, due):
-	if name is "":
-		return
-	task_credentials = get_task_credentials()
-	http = task_credentials.authorize(httplib2.Http())
-	service = discovery.build('tasks', 'v1', http=http)
-
-	due = due.isoformat() #+ str(".000Z")
-	task = {'title': name, 'due': due} #fix date
-	result = service.tasks().insert(tasklist='@default', body=task).execute()
-	assignments[name] = (result['id'], due)
-	print(result['id'])
-
-def populate_assignments(maxTasks = 100):
-	assignments.clear()
-	task_credentials = get_task_credentials()
-	http = task_credentials.authorize(httplib2.Http())
-	service = discovery.build('tasks', 'v1', http=http)
-	tasks = service.tasks().list(tasklist='@default', maxResults = maxTasks, showCompleted = False).execute()
-	for task in tasks['items']:
-		if task['title'] != "":
-			assignments[task['title']] = (task['id'], task['due'] if 'due' in task else None)
-
-def complete_task(taskName):
-	if len(assignments) == 0:
-		populate_assignments()
-	if taskName is "" or taskName not in assignments:
-		print("Sorry, we couldn't delete the task " + taskName + ".")
-		return
-	taskID = assignments[taskName][0]
-	task_credentials = get_task_credentials()
-	http = task_credentials.authorize(httplib2.Http())
-	service = discovery.build('tasks', 'v1', http=http)
-	task = service.tasks().get(tasklist='@default', task=taskID).execute()
-	task['status'] = 'completed'
-	result = service.tasks().update(tasklist='@default', task=task['id'], body=task).execute()
-	print("Successfully completed. " + result['completed'])
-
-def list_pending_tasks(maxTasks = 100):
-	assignments.clear()
-	task_credentials = get_task_credentials()
-	http = task_credentials.authorize(httplib2.Http())
-	service = discovery.build('tasks', 'v1', http=http)
-	tasks = service.tasks().list(tasklist='@default', maxResults = maxTasks, showCompleted = False).execute()
-	for task in tasks['items']:
-		if task['title'] != "":
-			assignments[task['title']] = (task['id'], task['due'] if 'due' in task else None)
-			print(task['title'])
-	if len(assignments) == 0:
-		print("You have no pending tasks.")
-
-def add_calendar_event(name, location, description, start, end):
-	calendar_credentials = get_calendar_credentials()
-	http = calendar_credentials.authorize(httplib2.Http())
-	service = discovery.build('calendar', 'v3', http=http)
-
-	event = {
-	'summary': name,
-	'location': location,
-	'description': description,
-	'start': {
-	'dateTime': start.isoformat(),
-	},
-	'end': {
-	'dateTime': end.isoformat(),
-	},
-	}
-	event = service.events().insert(calendarId='primary', body=event).execute()
-	print('Event created: %s' % (event.get('htmlLink')))
-
-def get_next_events(now, numEvents = 100):
-	calendar_credentials = get_calendar_credentials()
-	http = calendar_credentials.authorize(httplib2.Http())
-	service = discovery.build('calendar', 'v3', http=http)
-
-	eventsResult = service.events().list(
-		calendarId='primary', timeMin=now, maxResults=numEvents, singleEvents=True,
-		orderBy='startTime').execute()
-	events = eventsResult.get('items', [])
-	eventList = list()
-	for event in events:
-		start = event['start'].get('dateTime', event['start'].get('date'))
-		end = event['end'].get('dateTime', event['end'].get('date'))
-		sdt = dateutil.parser.parse(start)
-		edt = dateutil.parser.parse(end)
-		eventList.append((sdt, edt))
-		times = sdt.strftime('%y/%m/%d %I:%M') + " to " + edt.strftime('%I:%M')
-		#print(times, event['summary'])
-	return eventList
-
-def populate_event_list(startDate):
-	now = None
-	if startDate == "":
 		now = datetime.utcnow().isoformat() + 'Z' # 'Z' indicates UTC time
-	else:
-		now = datetime(int(startDate.split("/")[2]), int(startDate.split("/")[0]), int(startDate.split("/")[1]), tzinfo=tz.tzlocal())
-		if now < datetime.now(pytz.utc):
-			now = datetime.now(pytz.utc)
-		now = now.isoformat()
+		print('Getting the upcoming 10 events')
+		eventsResult = service.events().list(
+			calendarId='primary', timeMin=now, maxResults=numEvents, singleEvents=True,
+			orderBy='startTime').execute()
+		events = eventsResult.get('items', [])
 
-	events = get_next_events(now)
-	today = datetime.now(pytz.utc)
-	today = today.astimezone(tz.tzlocal())
-	event1 = (today + timedelta(days = 1), today + timedelta(days = 2)) #THIS DOESN'T QUITE WORK!
-	event2 = (today + timedelta(days = 3), today + timedelta(days = 4))
-	events.append(event1)
-	events.append(event2)
-	return events
+		if not events:
+			print('No upcoming events found.')
 
-def add_assignment(name, year, month, day, timeToComplete, attentionSpan, breakTime, startDate, minWorkTime = 15, travelTime = 15):
+		for event in events:
+			start = event['start'].get('dateTime', event['start'].get('date'))
+			end = event['end'].get('dateTime', event['end'].get('date'))
 
-	due = datetime(year, month, day, tzinfo=datetime.now(pytz.utc).tzinfo)
-	due = due.astimezone(tz.tzlocal())
-	travelTime = timedelta(minutes = travelTime)
-	time1 = None
-	if startDate == "":
-		time1 = datetime.now(pytz.utc) + travelTime
-		time1 = time1.astimezone(tz.tzlocal())
-	else:
-		time1 = datetime(int(startDate.split("/")[2]), int(startDate.split("/")[0]), int(startDate.split("/")[1]), tzinfo=tz.tzlocal())
-		if time1 < datetime.now(pytz.utc) + travelTime:
+			sdt = dateutil.parser.parse(start)
+			edt = dateutil.parser.parse(end)
+			times = sdt.strftime('%I:%M') + " to " + edt.strftime('%I:%M')
+
+			if 'location' not in event:
+				print(times, event['summary'])
+			else:
+				print(times, event['summary'], event['location'])
+
+
+	def add_task(self, name, due):
+		if name is "":
+			return None
+		task_credentials = self.get_task_credentials()
+		http = task_credentials.authorize(httplib2.Http())
+		service = discovery.build('tasks', 'v1', http=http)
+
+		due = due.isoformat() #+ str(".000Z")
+		task = {'title': name, 'due': due} #fix date
+		result = service.tasks().insert(tasklist='@default', body=task).execute()
+		assignments[name] = (result['id'], due)
+		return result['id']
+
+
+	def complete_task(self, taskName):
+		if len(assignments) == 0:
+			populate_assignments()
+		if taskName is "" or taskName not in assignments:
+			print("Sorry, we couldn't delete the task " + taskName + ".")
+			return
+		taskID = assignments[taskName][0]
+		task_credentials = self.get_task_credentials()
+		http = task_credentials.authorize(httplib2.Http())
+		service = discovery.build('tasks', 'v1', http=http)
+		task = service.tasks().get(tasklist='@default', task=taskID).execute()
+		task['status'] = 'completed'
+		result = service.tasks().update(tasklist='@default', task=task['id'], body=task).execute()
+		print("Successfully completed. " + result['completed'])
+
+	def list_pending_tasks(self, maxTasks = 100):
+		assignments.clear()
+		task_credentials = self.get_task_credentials()
+		http = task_credentials.authorize(httplib2.Http())
+		service = discovery.build('tasks', 'v1', http=http)
+		tasks = service.tasks().list(tasklist='@default', maxResults = maxTasks, showCompleted = False).execute()
+		for task in tasks['items']:
+			if task['title'] != "":
+				self.assignmentsDictionary[task['title']] = (task['id'], task['due'] if 'due' in task else None)
+				print(task['title'])
+		if len(assignments) == 0:
+			print("You have no pending tasks.")
+
+	def add_calendar_event(self, name, location, description, start, end):
+		calendar_credentials = self.get_calendar_credentials()
+		http = calendar_credentials.authorize(httplib2.Http())
+		service = discovery.build('calendar', 'v3', http=http)
+
+		event = {
+		'summary': name,
+		'location': location,
+		'description': description,
+		'start': {
+		'dateTime': start.isoformat(),
+		},
+		'end': {
+		'dateTime': end.isoformat(),
+		},
+		}
+		event = service.events().insert(calendarId='primary', body=event).execute()
+		print('Event created: %s' % (event.get('htmlLink')))
+		return event['id']
+
+	def get_next_events(self, now, due, numEvents = 100):
+		calendar_credentials = self.get_calendar_credentials()
+		http = calendar_credentials.authorize(httplib2.Http())
+		service = discovery.build('calendar', 'v3', http=http)
+
+		eventsResult = service.events().list(
+			calendarId='primary', timeMin=now, timeMax = due, singleEvents=True,
+			orderBy='startTime').execute()
+		events = eventsResult.get('items', [])
+		eventList = list()
+		self.eventsDictionary.clear()
+		for event in events:
+			if "Work on" in event['summary']:
+				if event['description'] not in self.eventsDictionary:
+					self.eventsDictionary[event['description']] = list()
+				self.eventsDictionary[event['description']].append(event['id'])
+			start = event['start'].get('dateTime', event['start'].get('date'))
+			end = event['end'].get('dateTime', event['end'].get('date'))
+			sdt = dateutil.parser.parse(start)
+			edt = dateutil.parser.parse(end)
+			eventList.append((sdt, edt))
+			times = sdt.strftime('%y/%m/%d %I:%M') + " to " + edt.strftime('%I:%M')
+			#print(times, event['summary'])
+		return eventList
+
+	def populate_event_list(self, startDate, due):
+		now = None
+		if startDate == "":
+			now = datetime.utcnow().isoformat() + 'Z' # 'Z' indicates UTC time
+		else:
+			now = datetime(int(startDate.split("/")[2]), int(startDate.split("/")[0]), int(startDate.split("/")[1]), tzinfo=tz.tzlocal())
+			if now < datetime.now(pytz.utc):
+				now = datetime.now(pytz.utc)
+			now = now.isoformat()
+
+		events = self.get_next_events(now, due.isoformat())
+		today = datetime.now(pytz.utc)
+		today = today.astimezone(tz.tzlocal())
+		event1 = (today + timedelta(days = 1), today + timedelta(days = 2)) #THIS DOESN'T QUITE WORK!
+		event2 = (today + timedelta(days = 3), today + timedelta(days = 4))
+		events.append(event1)
+		events.append(event2)
+		return events
+
+	def add_assignment(self, name, year, month, day, timeToComplete, attentionSpan, breakTime, startDate, minWorkTime = 15, travelTime = 15):
+
+		due = datetime(year, month, day, tzinfo=tz.tzlocal())
+		travelTime = timedelta(minutes = travelTime)
+		time1 = None
+		if startDate == "":
 			time1 = datetime.now(pytz.utc) + travelTime
+			time1 = time1.astimezone(tz.tzlocal())
+		else:
+			time1 = datetime(int(startDate.split("/")[2]), int(startDate.split("/")[0]), int(startDate.split("/")[1]), tzinfo=tz.tzlocal())
+			if time1 < (datetime.now(pytz.utc) + travelTime).astimezone(tz.tzlocal()):
+				time1 = (datetime.now(pytz.utc) + travelTime).astimezone(tz.tzlocal())
 
-	events = populate_event_list(startDate)
-	workSessions = list()
-	timeToComplete = timedelta(hours = timeToComplete)
-	attentionSpan = timedelta(hours = attentionSpan)
-	breakTime = timedelta(hours = breakTime)
-	minWorkTime = timedelta(minutes = minWorkTime)
-	index = 0
+		events = self.populate_event_list(startDate, due)
+		workSessions = list()
+		timeToComplete = timedelta(hours = timeToComplete)
+		attentionSpan = timedelta(hours = attentionSpan)
+		breakTime = timedelta(hours = breakTime)
+		minWorkTime = timedelta(minutes = minWorkTime)
+		index = 0
 
-	while(timeToComplete.total_seconds() > 0):
+		while(timeToComplete.total_seconds() > 0):
 
-		#what to do if they are not in order?
-		
-		time2 = events[index][0] - travelTime
-		if time2 < time1:
-			time1 = time2
-		if time1.day != time2.day or time2.hour > sleepBeginHour:
-			sleepTonightBegin = time1.replace(hour = sleepBeginHour, minute = sleepBeginMinute, second = 0)
-			sleepTonightEnd = sleepTonightBegin + timedelta(minutes = sleepMinutes)
-			events.insert(index, (sleepTonightBegin, sleepTonightEnd))
-			continue
-		
-		freetime = time2 - time1
-		
-		if (freetime >= minWorkTime):
-			workTime = attentionSpan if time2 - time1 > attentionSpan else time2 - time1
-			workTime = timeToComplete if workTime > timeToComplete else workTime
-			workStartTime = time1
-			workEndTime = workStartTime + workTime
-			if workStartTime.hour >= sleepEndHour and workEndTime.hour < sleepBeginHour and workEndTime.hour >= sleepEndHour:
-				print(workStartTime.hour)
-				workSessions.append((workStartTime, workEndTime))
-				events.insert(index, (workStartTime, workEndTime))
-				timeToComplete -= workTime
-				time1 = events[index][1] + breakTime
+			#what to do if they are not in order?
+			
+			time2 = events[index][0] - travelTime
+			if time2 < time1:
+				time1 = time2
+			if time1.day != time2.day or time2.hour > self.sleepBeginHour:
+				if time1.hour < self.sleepEndHour:
+					time1 -= timedelta(hours = 24)
+				sleepTonightBegin = time1.replace(hour = self.sleepBeginHour, minute = self.sleepBeginMinute, second = 0)
+				sleepTonightEnd = sleepTonightBegin + timedelta(minutes = self.sleepMinutes)
+				events.insert(index, (sleepTonightBegin, sleepTonightEnd))
+				continue
+			
+			freetime = time2 - time1
+			
+			if (freetime >= minWorkTime):
+				workTime = attentionSpan if time2 - time1 > attentionSpan else time2 - time1
+				workTime = timeToComplete if workTime > timeToComplete else workTime
+				workStartTime = time1
+				workEndTime = workStartTime + workTime
+				if workStartTime.hour >= self.sleepEndHour and workEndTime.hour < self.sleepBeginHour and workEndTime.hour >= self.sleepEndHour:
+					print(workStartTime.hour)
+					workSessions.append((workStartTime, workEndTime))
+					events.insert(index, (workStartTime, workEndTime))
+					timeToComplete -= workTime
+					time1 = events[index][1] + breakTime
+				else:
+					time1 = events[index][1] + travelTime
+			
 			else:
 				time1 = events[index][1] + travelTime
-		
+			index += 1
+
+		if workSessions[len(workSessions) - 1][1] > due:
+			print("Sorry, you don't have enough time to work on this assignment.")
 		else:
-			time1 = events[index][1] + travelTime
-		index += 1
+			print("Printing time sessions: ")
+			taskID = self.add_task(name, due)
+			for item in workSessions:
+				print("Start: " + str(item[0]))
+				print("End: " + str(item[1]))
+				calendarID = self.add_calendar_event("Work on " + name, "", taskID, item[0], item[1])
 
-	if workSessions[len(workSessions) - 1][1] > due:
-		print("Sorry, you don't have enough time to work on this assignment.")
-	else:
-		print("Printing time sessions: ")
-		for item in workSessions:
-			print("Start: " + str(item[0]))
-			print("End: " + str(item[1]))
-			add_calendar_event("Work on " + name, "", due.isoformat(), item[0], item[1])
-		add_task(name, due)
-
-def check_can_reschedule(startDate, due):
-	now = None
-	if startDate == "":
-		now = datetime.utcnow().isoformat() + 'Z' # 'Z' indicates UTC time
-	else:
-		now = datetime(int(startDate.split("/")[2]), int(startDate.split("/")[0]), int(startDate.split("/")[1]), tzinfo=tz.tzlocal())
-		if now < datetime.now(pytz.utc):
-			now = datetime.now(pytz.utc)
-		now = now.isoformat()
-
-	calendar_credentials = get_calendar_credentials()
-	http = calendar_credentials.authorize(httplib2.Http())
-	service = discovery.build('calendar', 'v3', http=http)
-
-	eventsResult = service.events().list(
-		calendarId='primary', timeMin=now, timeMax = due.isoformat(), maxResults=numEvents, singleEvents=True,
-		orderBy='startTime').execute()
-	events = eventsResult.get('items', [])
-	eventList = list()
-	dueDate = None
-
-	for event in events:
-		start = event['start'].get('dateTime', event['start'].get('date'))
-		end = event['end'].get('dateTime', event['end'].get('date'))
-		sdt = dateutil.parser.parse(start)
-		edt = dateutil.parser.parse(end)
-		if 'description' in event:
+	def change_sleep_times():
+		if self.sleepBeginHour > 12:
+			print("Currently, you sleep at " + str(sleepBeginHour % 12) + ":" + str(sleepBeginMinute) + " PM and wake up at " + str(sleepEndHour) + ":" + str(sleepEndMinute) + " AM.") #format minute string
+		else:
+			print("Currently, you sleep at " + str(sleepBeginHour) + ":" + str(sleepBeginMinute) + " AM and wake up at " + str(sleepEndHour) + ":" + str(sleepEndMinute) + " AM.")
+		while True:
 			try:
-				if dueDate == None:
-					dueDate = dateutil.parser.parse(event['description'])
-				if dueDate.isoformat() == event['description']:
-					#eventList.append((sdt, edt))
-					print("here")
-				else:
-					eventList.append((sdt, edt))
+				sleepBeginString = raw_input("What time do you normally go to sleep? Use 24-hr time in format HH:MM. Example: 22:00 for 10 PM.\n")
+				self.sleepBeginHour = int(sleepBeginString.split(":")[0])
+				self.sleepBeginMinute = int(sleepBeginString.split(":")[1])
+				if self.sleepBeginHour > 24 or self.sleepBeginHour < 0:
+					continue
+				if self.sleepBeginMinute > 59 or self.sleepBeginMinute < 0:
+					continue
+				break
 			except ValueError:
-				eventList.append((sdt, edt))
-		else:
-			eventList.append((sdt, edt))
-	return eventList
-
-def change_sleep_times():
-	global sleepBeginHour
-	global sleepBeginMinute
-	global sleepEndHour
-	global sleepEndMinute
-	global sleepMinutes
-	if sleepBeginHour > 12:
-		print("Currently, you sleep at " + str(sleepBeginHour % 12) + ":" + str(sleepBeginMinute) + " PM and wake up at " + str(sleepEndHour) + ":" + str(sleepEndMinute) + " AM.") #format minute string
-	else:
-		print("Currently, you sleep at " + str(sleepBeginHour) + ":" + str(sleepBeginMinute) + " AM and wake up at " + str(sleepEndHour) + ":" + str(sleepEndMinute) + " AM.")
-	while True:
-		try:
-			sleepBeginString = raw_input("What time do you normally go to sleep? Use 24-hr time in format HH:MM. Example: 22:00 for 10 PM.\n")
-			sleepBeginHour = int(sleepBeginString.split(":")[0])
-			sleepBeginMinute = int(sleepBeginString.split(":")[1])
-			if sleepBeginHour > 24 or sleepBeginHour < 0:
-				continue
-			if sleepBeginMinute > 59 or sleepBeginMinute < 0:
-				continue
-			break
-		except ValueError:
-			print("Please enter an valid time.")
-	while True:
-		try:
-			sleepEndString = raw_input("What time do you normally wake up? Use 24-hr time in format HH:MM. Example: 8:00 for 8 AM. You can't wake up after noon.\n")
-			sleepEndHour = int(sleepEndString.split(":")[0])
-			sleepEndMinute = int(sleepEndString.split(":")[1])
-			if sleepEndHour >= 12 or sleepEndHour < 0:
-				continue
-			if sleepEndMinute > 59 or sleepEndMinute < 0:
-				continue
-			break
-		except ValueError:
-			print("Please enter a valid time.")
-	wakeUpMinutes = sleepEndMinute + 60 * sleepEndHour
-	asleepMinutes = sleepBeginMinute + 60 * sleepBeginHour
-	sleepMinutes = (wakeUpMinutes - asleepMinutes) if wakeUpMinutes > asleepMinutes else (24 * 60 - asleepMinutes + wakeUpMinutes)
+				print("Please enter an valid time.")
+		while True:
+			try:
+				sleepEndString = raw_input("What time do you normally wake up? Use 24-hr time in format HH:MM. Example: 8:00 for 8 AM. You can't wake up after noon.\n")
+				self.sleepEndHour = int(sleepEndString.split(":")[0])
+				self.sleepEndMinute = int(sleepEndString.split(":")[1])
+				if self.sleepEndHour >= 12 or self.sleepEndHour < 0:
+					continue
+				if self.sleepEndMinute > 59 or self.sleepEndMinute < 0:
+					continue
+				break
+			except ValueError:
+				print("Please enter a valid time.")
+		wakeUpMinutes = sleepEndMinute + 60 * sleepEndHour
+		asleepMinutes = sleepBeginMinute + 60 * sleepBeginHour
+		self.sleepMinutes = (wakeUpMinutes - asleepMinutes) if wakeUpMinutes > asleepMinutes else (24 * 60 - asleepMinutes + wakeUpMinutes)
 
 
 def welcome():
@@ -386,9 +359,10 @@ def welcome():
 
 
 def main():
+	p = Planner()
 	test = raw_input("is this a test: ")
 	if (test == "y"):
-		add_assignment("test assignment", 2017, 1, 10, 10, 2, 3, "1/1/2016", 15, 15)
+		p.add_assignment("test assignment", 2017, 1, 10, 10, 2, 3, "1/1/2017", 15, 15)
 		return
 
 	print("Welcome to the planner!")
@@ -405,16 +379,16 @@ def main():
 			numTasks = raw_input("What is the maximum number of tasks you'd like to see? Press enter for a default of 100.\n")
 			try:
 				num = int(numTasks)
-				list_pending_tasks(num)
+				p.list_pending_tasks(num)
 			except ValueError:
-				list_pending_tasks()
+				p.list_pending_tasks()
 		elif choice == 2:
 			numEvents = raw_input("What is the maximum number of events you'd like to see? Press enter for a default of 10.\n")
 			try:
 				num = int(numEvents)
-				list_events(num)
+				p.list_events(num)
 			except ValueError:
-				list_events()
+				p.list_events()
 		elif choice == 3:
 			assignment = raw_input("Enter name of assignment/task to add: ")
 			dueDate = raw_input("Enter the date that this is due (MM/DD/YYYY): ")
@@ -427,12 +401,12 @@ def main():
 			minWorkTime = raw_input("What is the minimum number of minutes you'd like to work for at a stretch? ")
 			travelTime = raw_input("What is the amount of time in minutes required to travel to the next event? This is used as a buffer between events existing on your calendar and study sessions being planned. ")
 			startDate = raw_input("Enter the date you would like to start working on this (MM/DD/YYYY) or blank for today: ") #make sure start time is after today
-			add_assignment(assignment, int(year), int(month), int(day), float(timeToComplete), float(attentionSpan), float(breakTime), startDate, float(minWorkTime), float(travelTime))
+			p.add_assignment(assignment, int(year), int(month), int(day), float(timeToComplete), float(attentionSpan), float(breakTime), startDate, float(minWorkTime), float(travelTime))
 		elif choice == 4:
 			task = raw_input("What is the name of the task you'd like to mark as completed?\n")
-			complete_task(task)
+			p.complete_task(task)
 		elif choice == 5:
-			change_sleep_times()
+			p.change_sleep_times()
 
 	print("\nThanks for using the planner!")
 
