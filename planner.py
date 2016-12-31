@@ -43,10 +43,8 @@ sleepMinutes = 600
 
 def get_calendar_credentials():
     """Gets valid user credentials from storage.
-
     If nothing has been stored, or if the stored credentials are invalid,
     the OAuth2 flow is completed to obtain the new credentials.
-
     Returns:
         Credentials, the obtained credential.
     """
@@ -71,10 +69,8 @@ def get_calendar_credentials():
 
 def get_task_credentials():
     """Gets valid user credentials from storage.
-
     If nothing has been stored, or if the stored credentials are invalid,
     the OAuth2 flow is completed to obtain the new credentials.
-
     Returns:
         Credentials, the obtained credential.
     """
@@ -297,8 +293,49 @@ def add_assignment(name, year, month, day, timeToComplete, attentionSpan, breakT
 		for item in workSessions:
 			print("Start: " + str(item[0]))
 			print("End: " + str(item[1]))
-			add_calendar_event("Work on " + name, "", "", item[0], item[1])
+			add_calendar_event("Work on " + name, "", due.isoformat(), item[0], item[1])
 		add_task(name, due)
+
+def check_can_reschedule(startDate, due):
+	now = None
+	if startDate == "":
+		now = datetime.utcnow().isoformat() + 'Z' # 'Z' indicates UTC time
+	else:
+		now = datetime(int(startDate.split("/")[2]), int(startDate.split("/")[0]), int(startDate.split("/")[1]), tzinfo=tz.tzlocal())
+		if now < datetime.now(pytz.utc):
+			now = datetime.now(pytz.utc)
+		now = now.isoformat()
+
+	calendar_credentials = get_calendar_credentials()
+	http = calendar_credentials.authorize(httplib2.Http())
+	service = discovery.build('calendar', 'v3', http=http)
+
+	eventsResult = service.events().list(
+		calendarId='primary', timeMin=now, timeMax = due.isoformat(), maxResults=numEvents, singleEvents=True,
+		orderBy='startTime').execute()
+	events = eventsResult.get('items', [])
+	eventList = list()
+	dueDate = None
+
+	for event in events:
+		start = event['start'].get('dateTime', event['start'].get('date'))
+		end = event['end'].get('dateTime', event['end'].get('date'))
+		sdt = dateutil.parser.parse(start)
+		edt = dateutil.parser.parse(end)
+		if 'description' in event:
+			try:
+				if dueDate == None:
+					dueDate = dateutil.parser.parse(event['description'])
+				if dueDate.isoformat() == event['description']:
+					#eventList.append((sdt, edt))
+					print("here")
+				else:
+					eventList.append((sdt, edt))
+			except ValueError:
+				eventList.append((sdt, edt))
+		else:
+			eventList.append((sdt, edt))
+	return eventList
 
 def change_sleep_times():
 	global sleepBeginHour
