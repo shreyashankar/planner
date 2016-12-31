@@ -197,7 +197,7 @@ class Planner:
 		print('Event created: %s' % (event.get('htmlLink')))
 		return event['id']
 
-	def get_next_events(self, now, due, numEvents = 100):
+	def get_next_events(self, now, due, assignmentToIgnore, numEvents = 100):
 		calendar_credentials = self.get_calendar_credentials()
 		http = calendar_credentials.authorize(httplib2.Http())
 		service = discovery.build('calendar', 'v3', http=http)
@@ -213,6 +213,8 @@ class Planner:
 				if event['description'] not in self.eventsDictionary:
 					self.eventsDictionary[event['description']] = list()
 				self.eventsDictionary[event['description']].append(event['id'])
+				if event['description'] == assignmentToIgnore:
+					continue
 			start = event['start'].get('dateTime', event['start'].get('date'))
 			end = event['end'].get('dateTime', event['end'].get('date'))
 			sdt = dateutil.parser.parse(start)
@@ -227,7 +229,7 @@ class Planner:
 			print(event)
 			print(self.eventsDictionary[event])
 
-	def populate_event_list(self, startDate, due):
+	def populate_event_list(self, startDate, due, assignmentToIgnore = ""):
 		now = None
 		if startDate == "":
 			now = datetime.utcnow().isoformat() + 'Z' # 'Z' indicates UTC time
@@ -237,7 +239,7 @@ class Planner:
 				now = datetime.now(pytz.utc)
 			now = now.isoformat()
 
-		events = self.get_next_events(now, due.isoformat())
+		events = self.get_next_events(now, due.isoformat(), assignmentToIgnore)
 		today = datetime.now(pytz.utc)
 		today = today.astimezone(tz.tzlocal())
 		event1 = (today + timedelta(days = 1), today + timedelta(days = 2)) #THIS DOESN'T QUITE WORK!
@@ -245,6 +247,96 @@ class Planner:
 		events.append(event1)
 		events.append(event2)
 		return events
+
+	def schedule_assignment(self, index, due, time1, timeToComplete, attentionSpan, breakTime, startDate, minWorkTime, travelTime, events):
+		workSessions = list()
+
+		while(timeToComplete.total_seconds() > 0):
+			time2 = events[index][0] - travelTime
+			if time2 < time1:
+				time1 = time2
+			if time1.day != time2.day or time2.hour > self.sleepBeginHour:
+				if time1.hour < self.sleepEndHour:
+					time1 -= timedelta(hours = 24)
+				sleepTonightBegin = time1.replace(hour = self.sleepBeginHour, minute = self.sleepBeginMinute, second = 0)
+				sleepTonightEnd = sleepTonightBegin + timedelta(minutes = self.sleepMinutes)
+				events.insert(index, (sleepTonightBegin, sleepTonightEnd))
+				continue
+			
+			freetime = time2 - time1
+			
+			if (freetime >= minWorkTime):
+				workTime = attentionSpan if time2 - time1 > attentionSpan else time2 - time1
+				workTime = timeToComplete if workTime > timeToComplete else workTime
+				workStartTime = time1
+				workEndTime = workStartTime + workTime
+				if workStartTime.hour >= self.sleepEndHour and workEndTime.hour < self.sleepBeginHour and workEndTime.hour >= self.sleepEndHour:
+					print(workStartTime.hour)
+					workSessions.append((workStartTime, workEndTime))
+					events.insert(index, (workStartTime, workEndTime))
+					timeToComplete -= workTime
+					time1 = events[index][1] + breakTime
+				else:
+					time1 = events[index][1] + travelTime
+			
+			else:
+				time1 = events[index][1] + travelTime
+			index += 1
+
+		if workSessions[len(workSessions) - 1][1] > due:
+			return None
+
+		return (workSessions, index, events, time1)
+
+
+	def find_assignment_to_reschedule(self, startDate, due):
+		task_credentials = self.get_task_credentials()
+		http = task_credentials.authorize(httplib2.Http())
+		taskService = discovery.build('tasks', 'v1', http=http)
+		calendar_credentials = self.get_calendar_credentials()
+		http = calendar_credentials.authorize(httplib2.Http())
+		calendarService = discovery.build('calendar', 'v3', http=http)
+		for assignment in self.eventsDictionary:
+			task = taskService.tasks().get(tasklist='@default', task=assignment).execute()
+			firstEvent = calendarService.events().get(calendarId='primary', eventId=self.eventsDictionary[assignment][0]).execute()
+			sdt = dateutil.parser.parse(firstEvent['start'].get('dateTime', event['start'].get('date')))
+			if sdt >= due:
+				continue
+			else:
+				less_events = populate_event_list(startDate, due, assignment)
+				all_events = self.schedule_assignments()
+				if all_events is not None:
+					for event in self.eventsDictionary[assignment]:
+						calendarService.events().delete(calendarId='primary', eventId=event).execute()
+					taskID = self.add_task(name, due)
+					for item in all_events[0]:
+						print("Start: " + str(item[0]))
+						print("End: " + str(item[1]))
+						calendarID = self.add_calendar_event("Work on " + name, "", taskID, item[0], item[1])
+					for item in all_events[1]:
+						print("Rescheduled start: " + str(item[0]))
+						print("Rescheduled end: " + str(item[1]))
+						calendarID = self.add_calendar_event("Work on " + name, "", assignment, item[0], item[1])
+					break
+
+	def schedule_assignments(self, less_events, name, due, timeToComplete1, timeToComplete2, attentionSpan, breakTime, startDate, minWorkTime, travelTime, time1):
+		scheduled = self.schedule_assignment(0, due, time1, timeToComplete1, attentionSpan, breakTime, startDate, minWorkTime, travelTime, events)	
+		if scheduled is None:
+			return None
+
+		originalWorkSessions, index, events, time1 = scheduled
+		travelTime = timedelta(minutes = 15)
+		timeToComplete = timedelta(hours = timeToComplete2)
+		attentionSpan = timedelta(hours = 3)
+		breakTime = timedelta(hours = 0.25)
+		minWorkTime = timedelta(minutes = 15)
+
+		second_scheduled = self.schedule_assignment(index, due, time1, timeToComplete2, attentionSpan, breakTime, startDate, minWorkTime, travelTime, events)
+		if second_scheduled is None:
+			return
+
+		return (originalWorkSessions, second_scheduled[0])
+
 
 	def add_assignment(self, name, year, month, day, timeToComplete, attentionSpan, breakTime, startDate, minWorkTime = 15, travelTime = 15):
 
@@ -260,11 +352,13 @@ class Planner:
 				time1 = (datetime.now(pytz.utc) + travelTime).astimezone(tz.tzlocal())
 
 		events = self.populate_event_list(startDate, due)
-		workSessions = list()
 		timeToComplete = timedelta(hours = timeToComplete)
 		attentionSpan = timedelta(hours = attentionSpan)
 		breakTime = timedelta(hours = breakTime)
 		minWorkTime = timedelta(minutes = minWorkTime)
+
+		workSessions = self.schedule_assignment(0, due, time1, timeToComplete, attentionSpan, breakTime, startDate, minWorkTime, travelTime, events)
+
 		index = 0
 
 		while(timeToComplete.total_seconds() > 0):
