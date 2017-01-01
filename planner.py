@@ -254,13 +254,9 @@ class Planner:
 
 		while(timeToComplete.total_seconds() > 0):
 			if index < len(events):
-				print("here")
 				time2 = events[index][0] - travelTime
 			else:
 				time2 = time1 + minWorkTime + timedelta(hours = 1)
-
-			print("time 1: " + str(time1))
-			print("time 2: " + str(time2))
 
 			if time2 < time1 and time2 > start:
 				# time2 = time1
@@ -273,7 +269,6 @@ class Planner:
 				if time1.hour < self.sleepEndHour:
 					time1 -= timedelta(hours = 24)
 				sleepTonightBegin = time1.replace(hour = self.sleepBeginHour, minute = self.sleepBeginMinute, second = 0)
-				print("sleep tonight begin: " + str(sleepTonightBegin))
 				sleepTonightEnd = sleepTonightBegin + timedelta(minutes = self.sleepMinutes)
 				events.insert(index, (sleepTonightBegin, sleepTonightEnd))
 				continue
@@ -436,9 +431,9 @@ class Planner:
 		else:
 			pref = raw_input("Sorry; no time for this with your constraints! We can reschedule other study sessions if possible. Type 'yes' to reschedule. Type 'reprompt' if you want to be reprompted to change paramenters again. ")
 			if (pref == "yes"):
-				self.find_assignment_to_reschedule(name, startDate, due, timeToComplete, attentionSpan, breakTime, minWorkTime, travelTime, time1)
+				self.find_assignment_to_reschedule(name, startDate, due, self.ttc, self.ats, self.bt, self.mwt, self.tt, time1)
 			if (pref == "reprompt"):
-				modify_parameters_or_reschedule(name, due, timeToComplete, attentionSpan, breakTime, time1, minWorkTime, travelTime, startDate)
+				modify_parameters_or_reschedule(name, due, self.ttc, self.ats, self.bt, time1, self.mwt, self.tt, startDate)
 
 	def add_assignment(self, name, year, month, day, timeToComplete, attentionSpan, breakTime, startDate, minWorkTime = 15, travelTime = 15):
 		due = datetime(year, month, day, tzinfo=tz.tzlocal()) 
@@ -456,6 +451,11 @@ class Planner:
 		attentionSpan = timedelta(hours = attentionSpan)
 		breakTime = timedelta(hours = breakTime)
 		minWorkTime = timedelta(minutes = minWorkTime)
+		self.ttc = timeToComplete
+		self.ats = attentionSpan
+		self.bt = breakTime
+		self.mwt = minWorkTime
+		self.tt = travelTime
 
 		if due < time1:
 			print("Due date must be after start date. Please retry.")
