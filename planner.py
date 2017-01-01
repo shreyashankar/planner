@@ -242,18 +242,23 @@ class Planner:
 		events = self.get_next_events(now, due.isoformat(), assignmentToIgnore)
 		today = datetime.now(pytz.utc)
 		today = today.astimezone(tz.tzlocal())
-		event1 = (today + timedelta(days = 1), today + timedelta(days = 2)) #THIS DOESN'T QUITE WORK!
-		event2 = (today + timedelta(days = 3), today + timedelta(days = 4))
+		event1 = (today + timedelta(hours = 1), today + timedelta(hours = 1.1)) #THIS DOESN'T QUITE WORK!
+		event2 = (today + timedelta(hours = 1.2), today + timedelta(hours = 1.3))
 		events.append(event1)
 		events.append(event2)
 		return events
 
-	def schedule_assignment(self, index, due, time1, timeToComplete, attentionSpan, breakTime, startDate, minWorkTime, travelTime, events):
+	def schedule_assignment(self, index, due, time1, timeToComplete, attentionSpan, breakTime, minWorkTime, travelTime, events):
 		workSessions = list()
+		start = time1
 
 		while(timeToComplete.total_seconds() > 0):
-			time2 = events[index][0] - travelTime
-			if time2 < time1:
+			if index < len(events):
+				time2 = events[index][0] - travelTime
+			else:
+				time2 = time1 + minWorkTime + timedelta(hours = 1)
+
+			if time2 < time1 and time2 > start:
 				time1 = time2
 			if time1.day != time2.day or time2.hour > self.sleepBeginHour:
 				if time1.hour < self.sleepEndHour:
@@ -275,21 +280,41 @@ class Planner:
 					workSessions.append((workStartTime, workEndTime))
 					events.insert(index, (workStartTime, workEndTime))
 					timeToComplete -= workTime
-					time1 = events[index][1] + breakTime
+					time1 = workEndTime + breakTime
 				else:
 					time1 = events[index][1] + travelTime
 			
 			else:
-				time1 = events[index][1] + travelTime
+				if index < len(events):
+					time1 = events[index][1] + travelTime
+
 			index += 1
 
 		if workSessions[len(workSessions) - 1][1] > due:
+			for item in workSessions:
+				print("Start: " + str(item[0]))
+				print("End: " + str(item[1]))
 			return None
 
 		return (workSessions, index, events, time1)
 
+	def total_assignment_time(self, events):
+		calendar_credentials = self.get_calendar_credentials()
+		http = calendar_credentials.authorize(httplib2.Http())
+		service = discovery.build('calendar', 'v3', http=http)
+		totalTime = timedelta(minutes = 0)
+		for event in events:
+			print("here")
+			event = service.events().get(calendarId='primary', eventId=event).execute()
+			sdt = dateutil.parser.parse(event['start'].get('dateTime'))
+			edt = dateutil.parser.parse(event['end'].get('dateTime'))
+			totalTime += (edt - sdt)
+		print("total time: ")
+		print(totalTime)
+		return totalTime
 
-	def find_assignment_to_reschedule(self, startDate, due):
+
+	def find_assignment_to_reschedule(self, name, startDate, due, timeToComplete, attentionSpan, breakTime, minWorkTime, travelTime, time1):
 		task_credentials = self.get_task_credentials()
 		http = task_credentials.authorize(httplib2.Http())
 		taskService = discovery.build('tasks', 'v1', http=http)
@@ -299,12 +324,15 @@ class Planner:
 		for assignment in self.eventsDictionary:
 			task = taskService.tasks().get(tasklist='@default', task=assignment).execute()
 			firstEvent = calendarService.events().get(calendarId='primary', eventId=self.eventsDictionary[assignment][0]).execute()
-			sdt = dateutil.parser.parse(firstEvent['start'].get('dateTime', event['start'].get('date')))
+			sdt = dateutil.parser.parse(firstEvent['start'].get('dateTime', firstEvent['start'].get('date')))
 			if sdt >= due:
 				continue
 			else:
-				less_events = populate_event_list(startDate, due, assignment)
-				all_events = self.schedule_assignments()
+				summary = firstEvent['summary']
+				due_reschedule = dateutil.parser.parse(task['due'])
+				less_events = self.populate_event_list(startDate, due_reschedule, assignment)
+				timeToComplete2 = self.total_assignment_time(self.eventsDictionary[assignment])
+				all_events = self.reschedule_assignments(less_events, name, due, due_reschedule, timeToComplete, timeToComplete2, attentionSpan, breakTime, minWorkTime, travelTime, time1)
 				if all_events is not None:
 					for event in self.eventsDictionary[assignment]:
 						calendarService.events().delete(calendarId='primary', eventId=event).execute()
@@ -316,22 +344,22 @@ class Planner:
 					for item in all_events[1]:
 						print("Rescheduled start: " + str(item[0]))
 						print("Rescheduled end: " + str(item[1]))
-						calendarID = self.add_calendar_event("Work on " + name, "", assignment, item[0], item[1])
-					break
+						calendarID = self.add_calendar_event(summary, "", assignment, item[0], item[1])
+					return
+		print("Sorry; could not reschedule anything, unfortunately.")
 
-	def schedule_assignments(self, less_events, name, due, timeToComplete1, timeToComplete2, attentionSpan, breakTime, startDate, minWorkTime, travelTime, time1):
-		scheduled = self.schedule_assignment(0, due, time1, timeToComplete1, attentionSpan, breakTime, startDate, minWorkTime, travelTime, events)	
+	def reschedule_assignments(self, less_events, name, due1, due2, timeToComplete1, timeToComplete2, attentionSpan, breakTime, minWorkTime, travelTime, time1):
+		scheduled = self.schedule_assignment(0, due1, time1, timeToComplete1, attentionSpan, breakTime, minWorkTime, travelTime, less_events)	
 		if scheduled is None:
 			return None
 
 		originalWorkSessions, index, events, time1 = scheduled
 		travelTime = timedelta(minutes = 15)
-		timeToComplete = timedelta(hours = timeToComplete2)
 		attentionSpan = timedelta(hours = 3)
 		breakTime = timedelta(hours = 0.25)
 		minWorkTime = timedelta(minutes = 15)
 
-		second_scheduled = self.schedule_assignment(index, due, time1, timeToComplete2, attentionSpan, breakTime, startDate, minWorkTime, travelTime, events)
+		second_scheduled = self.schedule_assignment(index, due2, time1, timeToComplete2, attentionSpan, breakTime, minWorkTime, travelTime, less_events)
 		if second_scheduled is None:
 			return
 
@@ -357,51 +385,15 @@ class Planner:
 		breakTime = timedelta(hours = breakTime)
 		minWorkTime = timedelta(minutes = minWorkTime)
 
-		workSessions = self.schedule_assignment(0, due, time1, timeToComplete, attentionSpan, breakTime, startDate, minWorkTime, travelTime, events)
+		workSessions = self.schedule_assignment(0, due, time1, timeToComplete, attentionSpan, breakTime, minWorkTime, travelTime, events)
 
-		index = 0
-
-		while(timeToComplete.total_seconds() > 0):
-
-			#what to do if they are not in order?
-			
-			time2 = events[index][0] - travelTime
-			if time2 < time1:
-				time1 = time2
-			if time1.day != time2.day or time2.hour > self.sleepBeginHour:
-				if time1.hour < self.sleepEndHour:
-					time1 -= timedelta(hours = 24)
-				sleepTonightBegin = time1.replace(hour = self.sleepBeginHour, minute = self.sleepBeginMinute, second = 0)
-				sleepTonightEnd = sleepTonightBegin + timedelta(minutes = self.sleepMinutes)
-				events.insert(index, (sleepTonightBegin, sleepTonightEnd))
-				continue
-			
-			freetime = time2 - time1
-			
-			if (freetime >= minWorkTime):
-				workTime = attentionSpan if time2 - time1 > attentionSpan else time2 - time1
-				workTime = timeToComplete if workTime > timeToComplete else workTime
-				workStartTime = time1
-				workEndTime = workStartTime + workTime
-				if workStartTime.hour >= self.sleepEndHour and workEndTime.hour < self.sleepBeginHour and workEndTime.hour >= self.sleepEndHour:
-					print(workStartTime.hour)
-					workSessions.append((workStartTime, workEndTime))
-					events.insert(index, (workStartTime, workEndTime))
-					timeToComplete -= workTime
-					time1 = events[index][1] + breakTime
-				else:
-					time1 = events[index][1] + travelTime
-			
-			else:
-				time1 = events[index][1] + travelTime
-			index += 1
-
-		if workSessions[len(workSessions) - 1][1] > due:
-			print("Sorry, you don't have enough time to work on this assignment.")
+		if workSessions is None:
+			print("Sorry; no time for this with your constraints! But trying to reschedule...")
+			self.find_assignment_to_reschedule(name, startDate, due, timeToComplete, attentionSpan, breakTime, minWorkTime, travelTime, time1)
 		else:
 			print("Printing time sessions: ")
 			taskID = self.add_task(name, due)
-			for item in workSessions:
+			for item in workSessions[0]:
 				print("Start: " + str(item[0]))
 				print("End: " + str(item[1]))
 				calendarID = self.add_calendar_event("Work on " + name, "", taskID, item[0], item[1])
@@ -453,8 +445,9 @@ def main():
 	p = Planner()
 	test = raw_input("is this a test: ")
 	if (test == "y"):
-		p.add_assignment("test assignment", 2017, 1, 10, 10, 2, 3, "1/1/2017", 15, 15)
-		p.print_eventsDictionary()
+		p.add_assignment("long assignment", 2017, 1, 10, 10, 2, 2, "1/1/2017", 15, 15)
+		p.add_assignment("short assignment", 2017, 1, 2, 6, 2, 1, "1/1/2017", 15, 15)
+		#p.print_eventsDictionary()
 		return
 
 	print("Welcome to the planner!")
