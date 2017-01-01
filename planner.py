@@ -39,8 +39,8 @@ class Planner:
 		self.populate_assignments()
 		self.sleepBeginHour = 22
 		self.sleepEndHour = 8
-		self.sleepBeginMinute = 0
-		self.sleepEndMinute = 0
+		self.sleepBeginMinute = 30
+		self.sleepEndMinute = 30
 		self.sleepMinutes = 600
 		self.eventsDictionary = {}
 
@@ -258,6 +258,9 @@ class Planner:
 			else:
 				time2 = time1 + minWorkTime + timedelta(hours = 1)
 
+			print("time 1: " + str(time1))
+			print("time 2: " + str(time2))
+
 			if time2 < time1 and time2 > start:
 				# time2 = time1
 				# print("time 1 updated: " + str(time1))
@@ -280,7 +283,7 @@ class Planner:
 				workTime = timeToComplete if workTime > timeToComplete else workTime
 				workStartTime = time1
 				workEndTime = workStartTime + workTime
-				if workStartTime.hour >= self.sleepEndHour and workEndTime.hour < self.sleepBeginHour and workEndTime.hour >= self.sleepEndHour:
+				if workStartTime.hour >= self.sleepEndHour and workEndTime.hour <= self.sleepBeginHour and workEndTime.hour >= self.sleepEndHour:
 					#print(workStartTime.hour)
 					workSessions.append((workStartTime, workEndTime))
 					events.insert(index, (workStartTime, workEndTime))
@@ -533,8 +536,9 @@ def main():
 	p = Planner()
 	test = raw_input("is this a test: ")
 	if (test == "y"):
-		p.add_assignment("long assignment", 2017, 1, 10, 10, 2, 2, "1/1/2017", 15, 15)
-		p.add_assignment("small assignment", 2017, 1, 2, 3, 2, 1, "1/1/2017", 15, 15)
+		p.add_assignment("long assignment", 2017, 1, 10, 10, 2, .25, "1/1/2017", 15, 15)
+		#p.add_assignment("long assignment", 2017, 1, 10, 10, 2, 2, "1/1/2017", 15, 15)
+		#p.add_assignment("small assignment", 2017, 1, 2, 3, 2, 1, "1/1/2017", 15, 15)
 		#p.print_eventsDictionary()
 		return
 
