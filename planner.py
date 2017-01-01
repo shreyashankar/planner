@@ -486,11 +486,11 @@ class Planner:
 				print("End: " + str(item[1]))
 				calendarID = self.add_calendar_event("Work on " + name, "", taskID, item[0], item[1])
 
-	def change_sleep_times():
+	def change_sleep_times(self):
 		if self.sleepBeginHour > 12:
-			print("Currently, you sleep at " + str(sleepBeginHour % 12) + ":" + str(sleepBeginMinute) + " PM and wake up at " + str(sleepEndHour) + ":" + str(sleepEndMinute) + " AM.") #format minute string
+			print("Currently, you sleep at " + str(self.sleepBeginHour % 12) + ":" + str(self.sleepBeginMinute) + " PM and wake up at " + str(self.sleepEndHour) + ":" + str(self.sleepEndMinute) + " AM.") #format minute string
 		else:
-			print("Currently, you sleep at " + str(sleepBeginHour) + ":" + str(sleepBeginMinute) + " AM and wake up at " + str(sleepEndHour) + ":" + str(sleepEndMinute) + " AM.")
+			print("Currently, you sleep at " + str(self.sleepBeginHour) + ":" + str(self.sleepBeginMinute) + " AM and wake up at " + str(self.sleepEndHour) + ":" + str(self.sleepEndMinute) + " AM.")
 		while True:
 			try:
 				sleepBeginString = raw_input("What time do you normally go to sleep? Use 24-hr time in format HH:MM. Example: 22:00 for 10 PM.\n")
@@ -515,8 +515,8 @@ class Planner:
 				break
 			except ValueError:
 				print("Please enter a valid time.")
-		wakeUpMinutes = sleepEndMinute + 60 * sleepEndHour
-		asleepMinutes = sleepBeginMinute + 60 * sleepBeginHour
+		wakeUpMinutes = self.sleepEndMinute + 60 * self.sleepEndHour
+		asleepMinutes = self.sleepBeginMinute + 60 * self.sleepBeginHour
 		self.sleepMinutes = (wakeUpMinutes - asleepMinutes) if wakeUpMinutes > asleepMinutes else (24 * 60 - asleepMinutes + wakeUpMinutes)
 
 
