@@ -276,7 +276,7 @@ class Planner:
 				workStartTime = time1
 				workEndTime = workStartTime + workTime
 				if workStartTime.hour >= self.sleepEndHour and workEndTime.hour < self.sleepBeginHour and workEndTime.hour >= self.sleepEndHour:
-					print(workStartTime.hour)
+					#print(workStartTime.hour)
 					workSessions.append((workStartTime, workEndTime))
 					events.insert(index, (workStartTime, workEndTime))
 					timeToComplete -= workTime
@@ -304,13 +304,10 @@ class Planner:
 		service = discovery.build('calendar', 'v3', http=http)
 		totalTime = timedelta(minutes = 0)
 		for event in events:
-			print("here")
 			event = service.events().get(calendarId='primary', eventId=event).execute()
 			sdt = dateutil.parser.parse(event['start'].get('dateTime'))
 			edt = dateutil.parser.parse(event['end'].get('dateTime'))
 			totalTime += (edt - sdt)
-		print("total time: ")
-		print(totalTime)
 		return totalTime
 
 
@@ -388,8 +385,10 @@ class Planner:
 		workSessions = self.schedule_assignment(0, due, time1, timeToComplete, attentionSpan, breakTime, minWorkTime, travelTime, events)
 
 		if workSessions is None:
-			print("Sorry; no time for this with your constraints! But trying to reschedule...")
-			self.find_assignment_to_reschedule(name, startDate, due, timeToComplete, attentionSpan, breakTime, minWorkTime, travelTime, time1)
+			print("Sorry; no time for this with your constraints!")
+			pref = raw_input("Sorry; no time for this with your constraints! We recommend that you try decreasing attention span, break time, and min work times. But we can also reschedule other events if possible. Type yes to reschedule.")
+			if (pref == "yes"):
+				self.find_assignment_to_reschedule(name, startDate, due, timeToComplete, attentionSpan, breakTime, minWorkTime, travelTime, time1)
 		else:
 			print("Printing time sessions: ")
 			taskID = self.add_task(name, due)
@@ -445,8 +444,8 @@ def main():
 	p = Planner()
 	test = raw_input("is this a test: ")
 	if (test == "y"):
-		p.add_assignment("long assignment", 2017, 1, 10, 10, 2, 2, "1/1/2017", 15, 15)
-		p.add_assignment("short assignment", 2017, 1, 2, 6, 2, 1, "1/1/2017", 15, 15)
+		#p.add_assignment("long assignment", 2017, 1, 10, 10, 2, 2, "1/1/2017", 15, 15)
+		p.add_assignment("small assignment", 2017, 1, 2, 6, 2, 1, "1/1/2017", 15, 15)
 		#p.print_eventsDictionary()
 		return
 
