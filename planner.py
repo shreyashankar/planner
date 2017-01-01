@@ -242,8 +242,8 @@ class Planner:
 		events = self.get_next_events(now, due.isoformat(), assignmentToIgnore)
 		today = datetime.now(pytz.utc)
 		today = today.astimezone(tz.tzlocal())
-		event1 = (today + timedelta(hours = 1), today + timedelta(hours = 1.1)) #THIS DOESN'T QUITE WORK!
-		event2 = (today + timedelta(hours = 1.2), today + timedelta(hours = 1.3))
+		event1 = (today + timedelta(days = 15), today + timedelta(days = 16)) #THIS DOESN'T QUITE WORK!
+		event2 = (today + timedelta(days = 17), today + timedelta(days = 18))
 		events.append(event1)
 		events.append(event2)
 		return events
@@ -254,16 +254,26 @@ class Planner:
 
 		while(timeToComplete.total_seconds() > 0):
 			if index < len(events):
+				print("here")
 				time2 = events[index][0] - travelTime
 			else:
 				time2 = time1 + minWorkTime + timedelta(hours = 1)
 
+			print("time 1: " + str(time1))
+			print("time 2: " + str(time2))
+
 			if time2 < time1 and time2 > start:
-				time1 = time2
+				# time2 = time1
+				# print("time 1 updated: " + str(time1))
+				# print("time 2 updated: " + str(time2))
+				time1 = events[index][1] + travelTime
+				index += 1
+				continue
 			if time1.day != time2.day or time2.hour > self.sleepBeginHour:
 				if time1.hour < self.sleepEndHour:
 					time1 -= timedelta(hours = 24)
 				sleepTonightBegin = time1.replace(hour = self.sleepBeginHour, minute = self.sleepBeginMinute, second = 0)
+				print("sleep tonight begin: " + str(sleepTonightBegin))
 				sleepTonightEnd = sleepTonightBegin + timedelta(minutes = self.sleepMinutes)
 				events.insert(index, (sleepTonightBegin, sleepTonightEnd))
 				continue
@@ -351,7 +361,7 @@ class Planner:
 			return None
 
 		originalWorkSessions, index, events, time1 = scheduled
-		travelTime = timedelta(minutes = 15)
+		travelTime = timedelta(minutes = 30)
 		attentionSpan = timedelta(hours = 3)
 		breakTime = timedelta(hours = 0.25)
 		minWorkTime = timedelta(minutes = 15)
@@ -362,10 +372,76 @@ class Planner:
 
 		return (originalWorkSessions, second_scheduled[0])
 
+	def modify_parameters_or_reschedule(self, name, due, timeToComplete, attentionSpan, breakTime, time1, minWorkTime, travelTime, startDate):
+		as_diff = timedelta(hours = 3) - attentionSpan
+		bt_diff = breakTime - timedelta(hours = 0.5)
+		mwt_diff = minWorkTime - timedelta(minutes = 15)
+		tt_diff = travelTime - timedelta(minutes = 30)
+		reprompt = False
+		inp = ""
+
+		print("Sorry; no time for this with your constraints! Trying to figure out the best course of action...")
+
+		if max(as_diff, bt_diff, mwt_diff, tt_diff).total_seconds() <= 0:
+			pref = raw_input("Sorry; no time for this with your constraints! We can reschedule other study sessions if possible. Type yes to reschedule. ")
+			if (pref == "yes"):
+				self.find_assignment_to_reschedule(name, startDate, due, timeToComplete, attentionSpan, breakTime, minWorkTime, travelTime, time1)
+
+		if as_diff == max(as_diff, bt_diff, mwt_diff, tt_diff):
+			newAttentionSpan = timedelta(hours = 0)
+			while newAttentionSpan <= attentionSpan:
+				inp = raw_input("Your specified attention span is too low. Please enter a higher attention span in hours, or press enter to reschedule. ")
+				if inp == "":
+					break
+				newAttentionSpan = timedelta(hours = float(inp))
+			if inp != "":
+				attentionSpan = newAttentionSpan
+				reprompt = True
+		
+		elif bt_diff == max(as_diff, bt_diff, mwt_diff, tt_diff) and reprompt == False:
+			newBreakTime = timedelta.max
+			while newBreakTime >= breakTime:
+				inp = raw_input("Your specified break time is too high. Please enter a lower break time in hours. ")
+				if inp == "":
+					break
+				newBreakTime = timedelta(hours = float(inp))
+			if inp != "":
+				breakTime = newBreakTime
+				reprompt = True
+		
+		elif mwt_diff == max(as_diff, bt_diff, mwt_diff, tt_diff) and reprompt == False:
+			newMinWorkTime = timedelta.max
+			while newMinWorkTime >= minWorkTime:
+				inp = raw_input("Your specified minimum working time is too high. Please enter a lower minimum working time in minutes. ")
+				if inp == "":
+					break
+				newMinWorkTime = timedelta(minutes = float(inp))
+			if inp != "":
+				minWorkTime = newMinWorkTime
+				reprompt = True
+
+		elif tt_diff == max(as_diff, bt_diff, mwt_diff, tt_diff) and reprompt == False:
+			newTravelTime = timedelta.max
+			while newTravelTime >= travelTime:
+				inp = raw_input("Your specified travel time is too high. Please enter a lower travel time in minutes. ")
+				if inp == "":
+					break
+				newTravelTime = timedelta(minutes = float(inp))
+			if inp != "":
+				travelTime = newTravelTime
+				reprompt = True
+
+		if reprompt:
+			self.add_assignment_helper(name, due, timeToComplete, attentionSpan, breakTime, time1, minWorkTime , travelTime)
+		else:
+			pref = raw_input("Sorry; no time for this with your constraints! We can reschedule other study sessions if possible. Type 'yes' to reschedule. Type 'reprompt' if you want to be reprompted to change paramenters again. ")
+			if (pref == "yes"):
+				self.find_assignment_to_reschedule(name, startDate, due, timeToComplete, attentionSpan, breakTime, minWorkTime, travelTime, time1)
+			if (pref == "reprompt"):
+				modify_parameters_or_reschedule(name, due, timeToComplete, attentionSpan, breakTime, time1, minWorkTime, travelTime, startDate)
 
 	def add_assignment(self, name, year, month, day, timeToComplete, attentionSpan, breakTime, startDate, minWorkTime = 15, travelTime = 15):
-
-		due = datetime(year, month, day, tzinfo=tz.tzlocal())
+		due = datetime(year, month, day, tzinfo=tz.tzlocal()) 
 		travelTime = timedelta(minutes = travelTime)
 		time1 = None
 		if startDate == "":
@@ -376,19 +452,32 @@ class Planner:
 			if time1 < (datetime.now(pytz.utc) + travelTime).astimezone(tz.tzlocal()):
 				time1 = (datetime.now(pytz.utc) + travelTime).astimezone(tz.tzlocal())
 
-		events = self.populate_event_list(startDate, due)
 		timeToComplete = timedelta(hours = timeToComplete)
 		attentionSpan = timedelta(hours = attentionSpan)
 		breakTime = timedelta(hours = breakTime)
 		minWorkTime = timedelta(minutes = minWorkTime)
 
+		if due < time1:
+			print("Due date must be after start date. Please retry.")
+			return
+		elif due - time1 < timeToComplete:
+			print("There will never be enough time to complete this because the time to complete the task is too large. Please retry.")
+			return
+
+		self.add_assignment_helper(name, due, timeToComplete, attentionSpan, breakTime, time1, minWorkTime , travelTime, startDate)
+
+	def add_assignment_helper(self, name, due, timeToComplete, attentionSpan, breakTime, time1, minWorkTime, travelTime, startDate):
+		
+		if timeToComplete.total_seconds() < 0 or attentionSpan.total_seconds() <= 0 or breakTime.total_seconds() < 0 or minWorkTime.total_seconds() < 0:
+			print("Please make sure parameters are nonzero and attentionSpan is >= 0.")
+			return
+
+		events = self.populate_event_list(startDate, due)
+
 		workSessions = self.schedule_assignment(0, due, time1, timeToComplete, attentionSpan, breakTime, minWorkTime, travelTime, events)
 
 		if workSessions is None:
-			print("Sorry; no time for this with your constraints!")
-			pref = raw_input("Sorry; no time for this with your constraints! We recommend that you try decreasing attention span, break time, and min work times. But we can also reschedule other events if possible. Type yes to reschedule.")
-			if (pref == "yes"):
-				self.find_assignment_to_reschedule(name, startDate, due, timeToComplete, attentionSpan, breakTime, minWorkTime, travelTime, time1)
+			self.modify_parameters_or_reschedule(name, due, timeToComplete, attentionSpan, breakTime, time1, minWorkTime, travelTime, startDate)
 		else:
 			print("Printing time sessions: ")
 			taskID = self.add_task(name, due)
@@ -444,8 +533,8 @@ def main():
 	p = Planner()
 	test = raw_input("is this a test: ")
 	if (test == "y"):
-		#p.add_assignment("long assignment", 2017, 1, 10, 10, 2, 2, "1/1/2017", 15, 15)
-		p.add_assignment("small assignment", 2017, 1, 2, 6, 2, 1, "1/1/2017", 15, 15)
+		p.add_assignment("long assignment", 2017, 1, 10, 10, 2, 2, "1/1/2017", 15, 15)
+		p.add_assignment("small assignment", 2017, 1, 2, 3, 2, 1, "1/1/2017", 15, 15)
 		#p.print_eventsDictionary()
 		return
 
