@@ -15,7 +15,7 @@ from oauth2client.file import Storage
 
 import datetime
 import dateutil.parser
-from datetime import tzinfo, timedelta, datetime
+from datetime import tzinfo, timedelta, datetime, time
 from dateutil import tz
 
 try:
@@ -527,9 +527,14 @@ class Planner:
 		asleepMinutes = self.sleepBeginMinute + 60 * self.sleepBeginHour
 		self.sleepMinutes = (wakeUpMinutes - asleepMinutes) if wakeUpMinutes > asleepMinutes else (24 * 60 - asleepMinutes + wakeUpMinutes)
 
-	def find_top_meeting_times(self, name, startDate, meetingTime, num, travelTime):
+	def find_top_meeting_times(self, name, startDate, meetingTime, num, travelTime, startTime, endTime):
 		travelTime = timedelta(minutes = travelTime)
 		meetingTime = timedelta(hours = meetingTime)
+		setTime = False
+		if startTime != "":
+			startTime = time(int(startTime.split(":")[0]), int(startTime.split(":")[1]), tzinfo = tz.tzlocal())
+			endTime = time(int(endTime.split(":")[0]), int(endTime.split(":")[1]), tzinfo = tz.tzlocal())
+			setTime = True
 		time1 = None
 		if startDate == "":
 			time1 = datetime.now(pytz.utc) + travelTime
@@ -548,7 +553,7 @@ class Planner:
 			if index < len(events):
 				time2 = events[index][0] - travelTime
 			else:
-				time2 = time1 + minWorkTime + timedelta(hours = 1)
+				time2 = time1 + timedelta(hours = 1)
 
 			if time2 < time1 and time2 > start:
 				time1 = events[index][1] + travelTime
@@ -569,12 +574,17 @@ class Planner:
 				workEndTime = workStartTime + meetingTime
 				if workStartTime.hour >= self.sleepEndHour and workEndTime.hour <= self.sleepBeginHour and workEndTime.hour >= self.sleepEndHour:
 					#print(workStartTime.hour)
-					workSessions.append((workStartTime, workEndTime))
-					events.insert(index, (workStartTime, workEndTime))
-					time1 = workEndTime + travelTime
-					num -= 1
-				else:
-					time1 = events[index][1] + travelTime
+					print(workStartTime.time())
+					if setTime and workStartTime.time() >= startTime and workEndTime.time() <= endTime:
+						workSessions.append((workStartTime, workEndTime))
+						events.insert(index, (workStartTime, workEndTime))
+						num -= 1
+					elif setTime == False:
+						workSessions.append((workStartTime, workEndTime))
+						events.insert(index, (workStartTime, workEndTime))
+						num -= 1
+				
+				time1 = events[index][1] + travelTime
 			
 			else:
 				if index < len(events):
@@ -613,7 +623,7 @@ def main():
 	p = Planner()
 	test = raw_input("is this a test: ")
 	if (test == "y"):
-		p.find_top_meeting_times("Yusha", "", 1, 15, 15)
+		p.find_top_meeting_times("Yusha", "", 1, 5, 15, "12:00", "14:00")
 		#p.add_assignment("long assignment", 2017, 1, 10, 10, 2, .25, "1/1/2017", 15, 15)
 		#p.add_assignment("long assignment", 2017, 1, 10, 10, 2, 2, "1/1/2017", 15, 15)
 		#p.add_assignment("small assignment", 2017, 1, 2, 3, 2, 1, "1/1/2017", 15, 15)
@@ -686,7 +696,11 @@ def main():
 			except ValueError:
 				print("Please enter a valid number (float).")
 				continue
-			p.find_top_meeting_times(name, startDate, hours, numResults, travelTime)
+			startTime = raw_input("If you want to meet with " + name + " during a certain time in the day, enter the range's start time here (HH:MM) in 24 hour time or blank to continue: ")
+			endTime = ""
+			if startTime != "":
+				endTime = raw_input("Enter the range's end time here (HH:MM) in 24 hour time: ")
+			p.find_top_meeting_times(name, startDate, hours, numResults, travelTime, startTime, endTime)
 
 
 	print("\nThanks for using the planner!")
