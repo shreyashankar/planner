@@ -527,6 +527,46 @@ class Planner:
 		asleepMinutes = self.sleepBeginMinute + 60 * self.sleepBeginHour
 		self.sleepMinutes = (wakeUpMinutes - asleepMinutes) if wakeUpMinutes > asleepMinutes else (24 * 60 - asleepMinutes + wakeUpMinutes)
 
+	def find_range_times(self, meetingTime, num, travelTime, startTime, endTime, time1):
+		start = time1
+		workSessions = list()
+		currentDayStart = (datetime.now(pytz.utc)).astimezone(tz.tzlocal())
+		currentDayStart = currentDayStart.replace(hour = startTime.hour, minute = startTime.minute, second = 0)
+		if start < currentDayStart:
+			start = currentDayStart
+		else:
+			start += timedelta(hours = 24)
+			start = start.replace(hour = startTime.hour, minute = startTime.minute, second = 0)
+
+		while num > 0:
+			currentDayStart = start
+			currentDayStart = currentDayStart.replace(hour = startTime.hour, second = 0)
+			currentDayStart = currentDayStart.replace(minute = startTime.minute)
+			currentDayEnd = start
+			currentDayEnd = currentDayEnd.replace(hour = endTime.hour, second = 0)
+			currentDayEnd = currentDayEnd.replace(minute = endTime.minute)
+
+			events = self.get_next_events((currentDayStart - travelTime).isoformat(), (currentDayEnd + travelTime).isoformat(), "")
+
+			currStart = currentDayStart
+			currEnd = currStart + meetingTime
+
+			while currEnd <= currentDayEnd and num >0:
+				free = True
+				for event in events:
+					if event[1] > currentDayStart - travelTime and event[0] < currentDayEnd + travelTime:
+						free = False
+						break
+				if free:
+					workSessions.append((currStart, currEnd))
+					num -= 1
+				currStart += travelTime
+				currEnd = currStart + meetingTime
+
+			start += timedelta(hours = 24)
+
+		return workSessions
+
 	def find_top_meeting_times(self, name, startDate, meetingTime, num, travelTime, startTime, endTime):
 		travelTime = timedelta(minutes = travelTime)
 		meetingTime = timedelta(hours = meetingTime)
@@ -544,53 +584,55 @@ class Planner:
 			if time1 < (datetime.now(pytz.utc) + travelTime).astimezone(tz.tzlocal()):
 				time1 = (datetime.now(pytz.utc) + travelTime).astimezone(tz.tzlocal())
 
-		workSessions = list()
-		start = time1
-		index = 0
+		if setTime:
+			workSessions = self.find_range_times(meetingTime, num, travelTime, startTime, endTime, time1)
 
-		events = self.populate_event_list(startDate)
-		while num > 0:
-			if index < len(events):
-				time2 = events[index][0] - travelTime
-			else:
-				time2 = time1 + timedelta(hours = 1)
-
-			if time2 < time1 and time2 > start:
-				time1 = events[index][1] + travelTime
-				index += 1
-				continue
-			if time1.day != time2.day or time2.hour > self.sleepBeginHour:
-				if time1.hour < self.sleepEndHour:
-					time1 -= timedelta(hours = 24)
-				sleepTonightBegin = time1.replace(hour = self.sleepBeginHour, minute = self.sleepBeginMinute, second = 0)
-				sleepTonightEnd = sleepTonightBegin + timedelta(minutes = self.sleepMinutes)
-				events.insert(index, (sleepTonightBegin, sleepTonightEnd))
-				continue
-			
-			freetime = time2 - time1
-			
-			if (freetime >= meetingTime):
-				workStartTime = time1
-				workEndTime = workStartTime + meetingTime
-				if workStartTime.hour >= self.sleepEndHour and workEndTime.hour <= self.sleepBeginHour and workEndTime.hour >= self.sleepEndHour:
-					#print(workStartTime.hour)
-					print(workStartTime.time())
-					if setTime and workStartTime.time() >= startTime and workEndTime.time() <= endTime:
-						workSessions.append((workStartTime, workEndTime))
-						events.insert(index, (workStartTime, workEndTime))
-						num -= 1
-					elif setTime == False:
-						workSessions.append((workStartTime, workEndTime))
-						events.insert(index, (workStartTime, workEndTime))
-						num -= 1
-				
-				time1 = events[index][1] + travelTime
-			
-			else:
+		else:
+			last = False
+			optimal = True if raw_input("Type 'y' if you want to schedule this assignment close to your other events on your calendar (to minimize total travel time for the day). ") == 'y' else False
+			workSessions = list()
+			start = time1
+			index = 0
+			events = self.populate_event_list(startDate)
+			while num > 0:
 				if index < len(events):
-					time1 = events[index][1] + travelTime
+					time2 = events[index][0] - travelTime
+				else:
+					time2 = time1 + timedelta(hours = 1)
 
-			index += 1
+				if time2 < time1 and time2 > start:
+					time1 = events[index][1] + travelTime
+					index += 1
+					continue
+				if time1.day != time2.day or time2.hour > self.sleepBeginHour:
+					if time1.hour < self.sleepEndHour:
+						time1 -= timedelta(hours = 24)
+					sleepTonightBegin = time1.replace(hour = self.sleepBeginHour, minute = self.sleepBeginMinute, second = 0)
+					sleepTonightEnd = sleepTonightBegin + timedelta(minutes = self.sleepMinutes)
+					events.insert(index, (sleepTonightBegin, sleepTonightEnd))
+					continue
+				
+				freetime = time2 - time1
+				
+				if (freetime >= meetingTime):
+					workStartTime = time1
+					workEndTime = workStartTime + meetingTime
+					if last == False and workStartTime.hour >= self.sleepEndHour and workEndTime.hour <= self.sleepBeginHour and workEndTime.hour >= self.sleepEndHour:
+						workSessions.append((workStartTime, workEndTime))
+						events.insert(index, (workStartTime, workEndTime))
+						num -= 1
+						if optimal:
+							last = True				
+					else:
+						last = False
+					time1 = events[index][1] + travelTime
+				
+				else:
+					last = False
+					if index < len(events):
+						time1 = events[index][1] + travelTime
+
+				index += 1
 
 		print("Options: ")
 		count = 1
@@ -598,7 +640,9 @@ class Planner:
 			print(str(count) + ": " + str(possibility[0]) + " to " + str(possibility[1]))
 			count += 1
 		while True:
-			time_index = raw_input("Type the number that corresponds to the time you would like to add to your calendar. ")
+			time_index = raw_input("Type the number that corresponds to the time you would like to add to your calendar or just press enter to not add anything. ")
+			if time_index == "":
+				break
 			try:
 				time_index = int(time_index)
 				calendarID = self.add_calendar_event("Meeting with " + name, "", "", workSessions[time_index - 1][0], workSessions[time_index - 1][1])
