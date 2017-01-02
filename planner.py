@@ -202,8 +202,11 @@ class Planner:
 		http = calendar_credentials.authorize(httplib2.Http())
 		service = discovery.build('calendar', 'v3', http=http)
 
-		eventsResult = service.events().list(
-			calendarId='primary', timeMin=now, timeMax = due, singleEvents=True,
+		if due != "":
+			eventsResult = service.events().list(calendarId='primary', timeMin=now, timeMax = due, singleEvents=True, orderBy='startTime').execute()
+		else:
+			eventsResult = service.events().list(
+			calendarId='primary', timeMin=now, maxResults = numEvents, singleEvents=True,
 			orderBy='startTime').execute()
 		events = eventsResult.get('items', [])
 		eventList = list()
@@ -229,7 +232,7 @@ class Planner:
 			print(event)
 			print(self.eventsDictionary[event])
 
-	def populate_event_list(self, startDate, due, assignmentToIgnore = ""):
+	def populate_event_list(self, startDate, due = "", assignmentToIgnore = ""):
 		now = None
 		if startDate == "":
 			now = datetime.utcnow().isoformat() + 'Z' # 'Z' indicates UTC time
@@ -238,8 +241,10 @@ class Planner:
 			if now < datetime.now(pytz.utc):
 				now = datetime.now(pytz.utc)
 			now = now.isoformat()
+		if due != "":
+			due = due.isoformat()
 
-		events = self.get_next_events(now, due.isoformat(), assignmentToIgnore)
+		events = self.get_next_events(now, due, assignmentToIgnore)
 		today = datetime.now(pytz.utc)
 		today = today.astimezone(tz.tzlocal())
 		event1 = (today + timedelta(days = 15), today + timedelta(days = 16)) #THIS DOESN'T QUITE WORK!
@@ -522,6 +527,77 @@ class Planner:
 		asleepMinutes = self.sleepBeginMinute + 60 * self.sleepBeginHour
 		self.sleepMinutes = (wakeUpMinutes - asleepMinutes) if wakeUpMinutes > asleepMinutes else (24 * 60 - asleepMinutes + wakeUpMinutes)
 
+	def find_top_meeting_times(self, name, startDate, meetingTime, num, travelTime):
+		travelTime = timedelta(minutes = travelTime)
+		meetingTime = timedelta(hours = meetingTime)
+		time1 = None
+		if startDate == "":
+			time1 = datetime.now(pytz.utc) + travelTime
+			time1 = time1.astimezone(tz.tzlocal())
+		else:
+			time1 = datetime(int(startDate.split("/")[2]), int(startDate.split("/")[0]), int(startDate.split("/")[1]), tzinfo=tz.tzlocal())
+			if time1 < (datetime.now(pytz.utc) + travelTime).astimezone(tz.tzlocal()):
+				time1 = (datetime.now(pytz.utc) + travelTime).astimezone(tz.tzlocal())
+
+		workSessions = list()
+		start = time1
+		index = 0
+
+		events = self.populate_event_list(startDate)
+		while num > 0:
+			if index < len(events):
+				time2 = events[index][0] - travelTime
+			else:
+				time2 = time1 + minWorkTime + timedelta(hours = 1)
+
+			if time2 < time1 and time2 > start:
+				time1 = events[index][1] + travelTime
+				index += 1
+				continue
+			if time1.day != time2.day or time2.hour > self.sleepBeginHour:
+				if time1.hour < self.sleepEndHour:
+					time1 -= timedelta(hours = 24)
+				sleepTonightBegin = time1.replace(hour = self.sleepBeginHour, minute = self.sleepBeginMinute, second = 0)
+				sleepTonightEnd = sleepTonightBegin + timedelta(minutes = self.sleepMinutes)
+				events.insert(index, (sleepTonightBegin, sleepTonightEnd))
+				continue
+			
+			freetime = time2 - time1
+			
+			if (freetime >= meetingTime):
+				workStartTime = time1
+				workEndTime = workStartTime + meetingTime
+				if workStartTime.hour >= self.sleepEndHour and workEndTime.hour <= self.sleepBeginHour and workEndTime.hour >= self.sleepEndHour:
+					#print(workStartTime.hour)
+					workSessions.append((workStartTime, workEndTime))
+					events.insert(index, (workStartTime, workEndTime))
+					time1 = workEndTime + travelTime
+					num -= 1
+				else:
+					time1 = events[index][1] + travelTime
+			
+			else:
+				if index < len(events):
+					time1 = events[index][1] + travelTime
+
+			index += 1
+
+		print("Options: ")
+		count = 1
+		for possibility in workSessions:
+			print(str(count) + ": " + str(possibility[0]) + " to " + str(possibility[1]))
+			count += 1
+		while True:
+			time_index = raw_input("Type the number that corresponds to the time you would like to add to your calendar. ")
+			try:
+				time_index = int(time_index)
+				calendarID = self.add_calendar_event("Meeting with " + name, "", "", workSessions[time_index - 1][0], workSessions[time_index - 1][1])
+				break
+			except ValueError:
+				print("Try again. Type in a valid number.")
+
+
+
 
 def welcome():
 	print("\nEnter the number that corresponds to one of the following choices and enter, or only press enter to quit.")
@@ -530,13 +606,15 @@ def welcome():
 	print("3. Add a task and schedule times to work on it")
 	print("4. Mark a task as completed")
 	print("5. Reset sleep schedule (default is 10 pm bedtime, 7 am wake-up time)")
+	print("6. Find optimal times for a meeting with someone.")
 
 
 def main():
 	p = Planner()
 	test = raw_input("is this a test: ")
 	if (test == "y"):
-		p.add_assignment("long assignment", 2017, 1, 10, 10, 2, .25, "1/1/2017", 15, 15)
+		p.find_top_meeting_times("Yusha", "", 1, 15, 15)
+		#p.add_assignment("long assignment", 2017, 1, 10, 10, 2, .25, "1/1/2017", 15, 15)
 		#p.add_assignment("long assignment", 2017, 1, 10, 10, 2, 2, "1/1/2017", 15, 15)
 		#p.add_assignment("small assignment", 2017, 1, 2, 3, 2, 1, "1/1/2017", 15, 15)
 		#p.print_eventsDictionary()
@@ -544,13 +622,14 @@ def main():
 
 	print("Welcome to the planner!")
 	while True:
-		choice = "choice"
-		while choice != "1" and choice != "2" and choice != "3" and choice != "4" and choice != "5" and choice != "":
-			welcome()
-			choice = raw_input("")
+		welcome()
+		choice = raw_input("")
 		if choice == "":
 			break
-		choice = int(choice)
+		try:
+			choice = int(choice)
+		except ValueError:
+			continue
 		print()
 		if choice == 1:
 			numTasks = raw_input("What is the maximum number of tasks you'd like to see? Press enter for a default of 100.\n")
@@ -584,6 +663,31 @@ def main():
 			p.complete_task(task)
 		elif choice == 5:
 			p.change_sleep_times()
+		elif choice == 6:
+			name = raw_input("Who are you going to meet with? ")
+			hours = raw_input("For how long are you going to meet with " + name + " in hours? ")
+			try:
+				hours = float(hours)
+			except ValueError:
+				print("Please enter a valid number (float) of hours.")
+				continue
+			startDate = raw_input("Enter the date you would like to start looking for meeting times (MM/DD/YYYY) or blank if you want to schedule as soon as possible: ")
+			numResults = raw_input("How many meeting times do you want the planner to find for you? Enter an integer. ")
+			try:
+				numResults = int(numResults)
+				if numResults < 0:
+					test = int("hi")
+			except ValueError:
+				print("Please enter a valid positive integer.")
+				continue
+			travelTime = raw_input("What is the amount of time in minutes required to travel to the next event? This is used as a buffer between events existing on your calendar and a meeting time being planned. ")
+			try:
+				travelTime = float(travelTime)
+			except ValueError:
+				print("Please enter a valid number (float).")
+				continue
+			p.find_top_meeting_times(name, startDate, hours, numResults, travelTime)
+
 
 	print("\nThanks for using the planner!")
 
